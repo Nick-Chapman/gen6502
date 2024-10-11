@@ -1,4 +1,8 @@
 module Top where
 
+import qualified Is5
+
 main :: IO ()
-main = putStrLn "*gen6502*"
+main = do
+  putStrLn "*gen6502*"
+  Is5.main
