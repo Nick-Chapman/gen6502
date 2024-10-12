@@ -9,6 +9,8 @@ import Util (extend)
 import qualified Data.Map as Map
 import Text.Printf (printf)
 
+-- TODO: split out modules for: Codegen, Compilation, and testing
+
 main :: IO ()
 main = do
   print "*Is4*"
@@ -200,6 +202,7 @@ link x = \case
   Imm{} -> pure()
   Loc loc -> updateSemState (linkName x loc)
 
+-- TODO : Have Asm primitive to link Var(Exp) to a Location. Avoid need for {Get,Set}SemanticState
 linkName :: Var -> Loc -> SemState -> SemState
 linkName x loc s = do
   let e = Exp (Var x)

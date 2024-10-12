@@ -81,6 +81,7 @@ type SemState = Map Loc [Exp]
 ----------------------------------------------------------------------
 -- Arg, Loc
 
+-- TODO: move Arg to Is5-CodeGen (once stop its use in Emulation)
 data Arg = Loc Loc | Imm Immediate
 
 data Loc = RegA | RegX | RegY | ZP ZeroPage
@@ -112,6 +113,7 @@ instance Show ITransfer where
     Tax -> "tax"
     Txa -> "txa"
     Tya -> "tya"
+    -- TODO: show one-arg print code
     Ldai v -> printf "lda %s" (show v)
     Ldaz z -> printf "lda %s" (show z)
     Ldxi v -> printf "ldx %s" (show v)
