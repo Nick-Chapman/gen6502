@@ -5,7 +5,7 @@ module Cost
 import Instruction (Instruction(..),ITransfer(..),ICompute(..))
 import Text.Printf(printf)
 
-data Cost = Cost { space :: Int, time :: Int }
+data Cost = Cost { space :: Int, time :: Int } deriving Eq
 
 instance Show Cost where
   show Cost{space,time} = printf "%d/%d" space time

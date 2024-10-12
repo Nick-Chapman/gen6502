@@ -1,18 +1,15 @@
 module Is5 (main) where
 
-import Asm (Cost,Asm(..),runAsm,Temps(..))
+import Asm (Asm(..),runAsm,Temps(..))
 import Control.Monad (when)
-import Data.List (partition)
-import Data.Word (Word8)
 import Emulate (Env,MachineState,initMS,emulate)
-import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),Arg(..),Loc(..),ZeroPage(..),Immediate(..),SemState,noSemantics,transferSemantics,computeSemantics)
-import Language (Exp(..),Form(..),Op1(..),Op2(..),Var,EvalEnv,eval)
+import Instruction (Instruction(..),ITransfer(..),ICompute(..),Arg(..),Loc(..),ZeroPage(..),Immediate(..),SemState,noSemantics,transferSemantics,computeSemantics)
+import Language (Exp(..),Form(..),Op1(..),Op2(..),EvalEnv,eval)
 import Text.Printf (printf)
 import Util (extend)
 import qualified Cost
 import qualified Data.Map as Map
-
-type Byte = Word8
+import qualified Data.List as List
 
 -- TODO: split out modules for: Codegen, Compilation, and testing
 
@@ -130,36 +127,44 @@ runTests = do
   printf "ms0 = %s\n" (show ms0)
 
   let ss = semStateOfEnv env
-  mapM_ (run1 ss ee ms0) examples
+  mapM_ (run1 ss ee ms0) (last 1000 (zip [1::Int ..] examples))
+    where last n xs = reverse (take n (reverse xs))
 
 semStateOfEnv :: Env -> SemState
 semStateOfEnv env = Map.fromList [ (loc,[Exp (Var x)]) | (x,loc) <- Map.toList env ]
 
 
-run1 :: SemState -> EvalEnv -> MachineState -> Exp -> IO ()
-run1 state ee ms0 example = do
-  printf "\nexample = %s\n" (show example)
+run1 :: SemState -> EvalEnv -> MachineState -> (Int,Exp) -> IO ()
+run1 state ee ms0 (i,example) = do
+  printf "\n[%d]example = %s\n" i (show example)
   let eres = eval ee example
   let temps1 = Temps [ZeroPage n | n <- [7..19]]
-  let rs :: [Res] = runAsm Cost.lessTime temps1 state (compile0 example)
-  let num = length rs
-  if num == 0 then error "#results==0" else pure ()
+  rs <- runAsm Cost.lessTime temps1 state (compile0 example)
+  let _num = length rs
+  if _num == 0 then error "#results==0" else pure ()
+
   let
-    prRes :: (Res,Byte) -> IO ()
     prRes ((code,cost,arg),mres) = do
       let same = (mres == eres)
       let ok :: String = if same then "" else printf " {FAIL: different: %d}" mres
       printf "{%s}: %s --> %s%s\n" (show cost) (show code) (show arg) ok
 
   let rsWithEmu = [ (r, emulate ms0 (code,arg)) | r@(code,_,arg) <- rs ]
-  let (ok,bad) = partition correct rsWithEmu
+  let (ok,bad) = List.partition correct rsWithEmu
         where correct (_,mres) = (mres==eres)
 
   when (length bad > 0) $ do
     printf "eval -> %d\n" eres
 
+  let n1 = length rs
+  printf "#results=%d\n" n1
+  let n2 = length (List.nub rs)
+  when (n1 /= n2) $ do
+    --mapM_ prRes ok
+    printf "#results=%d #NUB=%d\n" n1 n2
+    --error "*NUB*" -- TODO: would be nice to enable this
+
   let n = 3
-  printf "#results=%d\n" (length rs)
   mapM_ prRes (take n ok)
 
   when (length bad > 0) $ do
@@ -168,65 +173,53 @@ run1 state ee ms0 example = do
     error "*BAD*"
 
 
-type Res = (Code,Cost,Arg)
-
-
 compile0 :: Exp -> Asm Arg
 compile0 exp = do
+  -- TODO: avoid splill if not in free vars ?
   perhaps spillA
   perhaps spillX
   perhaps spillY
   compile exp
+  locations exp
 
-compile :: Exp -> Asm Arg
+compile :: Exp -> Asm ()
 compile exp@(Exp form) = do
-  reusePreviousCompilation exp >>= \case
-    Just arg -> pure arg
-    Nothing ->
-      case form of
-        Num n -> pure (Imm (Immediate n))
-        Var{} -> locations exp
+  case form of
+    Num{} -> pure ()
+    Var{} -> pure ()
+    Op1 op1 exp1 -> do
+      compile exp1
+      arg <- locations exp1
+      codegen exp (Op1 op1 arg)
 
-        Op1 op1 exp1-> do
-          arg <- compile exp1
-          codegen exp (Op1 op1 arg)
-          locations exp
+    Op2 op2 exp1 exp2 -> do
+      compile exp1
+      compile exp2
+      arg1 <- locations exp1
+      arg2 <- locations exp2
+      codegen exp (Op2 op2 arg1 arg2)
 
-        Op2 op2 exp1 exp2 -> do
-          _ <- compile exp1
-          arg2 <- compile exp2
-          arg1 <- locations exp1
-          codegen exp (Op2 op2 arg1 arg2)
-          locations exp
+    Let x rhs body -> do
+      compile rhs
+      -- TODO: dont do linkage with non-determinism (alts)
+      arg <- locations rhs
+      let e = Exp (Var x)
+      linkE e arg
+      --checkFreeVarsLocatable body -- shortcut the fail.
+      compile body
+      loc <- locations body
+      linkE exp loc
 
-        Let x rhs body -> do
-          arg <- compile rhs
-          link x arg
-          --checkFreeVarsLocatable body -- shortcut the fail. nesc?
-          compile body
-{-
-free :: Exp -> [Var]
-free = undefined
 
-checkFreeVarsLocatable :: Exp -> Asm ()
-checkFreeVarsLocatable exp = do
-  state <- GetSemState
-  let xs = free exp
-  if all id [ somewhere (locateV state x) | x <- xs ] then pure () else Nope
-
-locateV :: SemState -> Var -> Located
-locateV s x = locateE s (Exp (Var x))
--}
-
-link :: Var -> Arg -> Asm ()
-link x = \case
+linkE :: Exp -> Arg -> Asm ()
+linkE e = \case
   Imm{} -> pure()
-  Loc loc -> updateSemState (linkName x loc)
+  Loc loc -> do
+    updateSemState (linkExp e loc)
 
 -- TODO : Have Asm primitive to link Var(Exp) to a Location. Avoid need for {Get,Set}SemanticState
-linkName :: Var -> Loc -> SemState -> SemState
-linkName x loc s = do
-  let e = Exp (Var x)
+linkExp :: Exp -> Loc -> SemState -> SemState
+linkExp e loc s = do
   let es = case Map.lookup loc s of Just es -> es; Nothing -> []
   extend s loc (e:es)
 
@@ -235,23 +228,17 @@ updateSemState f = do
   ss <- GetSemState
   SetSemState (f ss)
 
-locations :: Exp -> Asm Arg
+locations :: Exp -> Asm Arg -- TODO: annoying this returns Arg not Loc !!
 locations exp = do
   state <- GetSemState
   let located = locateE state exp
-  locationsL located
+  locationsL exp located
 
-reusePreviousCompilation :: Exp -> Asm (Maybe Arg)
-reusePreviousCompilation exp = do
-  state <- GetSemState
-  let located = locateE state exp
-  if somewhere located then Just <$> (locationsL located) else pure Nothing
-
-somewhere :: Located -> Bool
-somewhere located = not (null (argsL located))
-
-locationsL :: Located -> Asm Arg
-locationsL located = alts [ pure arg | arg <- argsL located ]
+locationsL :: Exp -> Located -> Asm Arg
+locationsL whoExp located = do
+  let tag = printf "%s--locations" (show whoExp)
+  let xs = argsL located
+  alts tag [ pure arg | arg <- xs ]
 
 data Located = LocatedList [Arg]
 
@@ -264,8 +251,12 @@ locateE state exp =
   ((case exp of Exp (Num b) -> [Imm (Immediate b)]; _ -> []) -- TODO: surprise we need this
    ++ [ Loc loc | (loc,exps) <- Map.toList state, exp `elem` exps ])
 
-alts :: [Asm a] -> Asm a
-alts = foldl Alt Nope
+-- TODO remove tag debugging for Alt/Nope
+alts :: String -> [Asm a] -> Asm a
+alts tag xs = do
+  let n = length xs
+  foldl (\a (i,b) -> Alt (printf "%s[%d/%d]" tag i n) a b
+        ) (Nope tag) (zip [1::Int ..] xs)
 
 ----------------------------------------------------------------------
 -- instruction selection
@@ -273,7 +264,7 @@ alts = foldl Alt Nope
 type Gen = Exp -> Form Arg -> Asm ()
 
 select :: [Gen] -> Gen
-select gs = \e f -> alts [ g e f | g <- gs ]
+select gs = \e f -> alts "select" [ g e f | g <- gs ]
 
 codegen :: Gen
 codegen = select [doubling,addition,xor,incrementX,incrementM]
@@ -281,7 +272,7 @@ codegen = select [doubling,addition,xor,incrementX,incrementM]
 doubling :: Gen
 doubling e = \case
   Op1 Asl arg -> do loadA arg; comp e Asla
-  _ -> Nope
+  _ -> Nope"doubling"
 
 -- TODO: perhaps spillA after each codegen
 
@@ -290,48 +281,48 @@ addition e = \case
   Op2 Add (Loc RegA) arg -> do addIntoA e arg
   Op2 Add arg (Loc RegA) -> do addIntoA e arg
   Op2 Add arg1 arg2 -> do loadA arg1; addIntoA e arg2
-  _ -> Nope
+  _ -> Nope"addition"
 
 addIntoA :: Exp -> Arg -> Asm ()
 addIntoA e = \case
   Imm imm -> do clc; comp e (Adci imm)
   Loc RegA -> comp e (Asla)
-  Loc RegX -> Nope
-  Loc RegY -> Nope
+  Loc RegX -> Nope"addinto1"
+  Loc RegY -> Nope"addinto2"
   Loc (ZP z) -> do clc; comp e  (Adcz z)
 
 xor :: Gen
 xor e = \case
-  Op2 Xor (Loc RegA) arg -> do eorIntoA e arg
-  Op2 Xor arg (Loc RegA) -> do eorIntoA e arg
+  Op2 Xor (Loc RegA) _arg -> do eorIntoA e _arg
+  Op2 Xor _arg (Loc RegA) -> do eorIntoA e _arg
   Op2 Xor arg1 arg2 -> do loadA arg1; eorIntoA e arg2
-  _ -> Nope
+  _ -> Nope"xor"
 
 eorIntoA :: Exp -> Arg -> Asm ()
 eorIntoA e = \case
-  Imm imm -> do clc; comp e (Eori imm)
-  Loc RegA -> Nope -- or assign fixed bit pattern
-  Loc RegX -> Nope
-  Loc RegY -> Nope
-  Loc (ZP z) -> do clc; comp e  (Eorz z)
+  Imm imm -> do comp e (Eori imm)
+  Loc RegA -> Nope"eorIntoA1" -- or assign fixed bit pattern
+  Loc RegX -> Nope"eorIntoA2"
+  Loc RegY -> Nope"eorIntoA3"
+  Loc (ZP z) -> do comp e (Eorz z)
 
 
 incrementX :: Gen -- TODO Y like X
 incrementX e = \case
   Op2 Add arg (Imm 1) -> do loadX arg; comp e Inx
   Op2 Add (Imm 1) arg -> do loadX arg; comp e Inx
-  _ -> Nope
+  _ -> Nope"incrementX"
 
 incrementM :: Gen
 incrementM e = \case
   Op2 Add arg (Imm 1) -> do z <- inZP arg; comp e (Incz z)
   Op2 Add (Imm 1) arg -> do z <- inZP arg; comp e (Incz z)
-  _ -> Nope
+  _ -> Nope"incrementM"
 
 inZP :: Arg -> Asm ZeroPage
 inZP = \case
   Loc (ZP z) -> pure z
-  _ -> Nope
+  _ -> Nope"inZP"
 
 -- TODO: compile time constant folding
 
@@ -351,7 +342,7 @@ loadX = \case
   Imm imm -> trans (Ldxi imm)
   Loc RegA -> trans Tax
   Loc RegX -> pure ()
-  Loc RegY -> Nope -- no Y->X
+  Loc RegY -> Nope"loadX(no Y->X)"
   Loc (ZP z) -> trans (Ldxz z)
 
 clc :: Asm ()
@@ -367,7 +358,7 @@ comp e i = Emit (Comp i) (computeSemantics e i)
 -- spilling...
 
 perhaps :: Asm () -> Asm ()
-perhaps a = alts [a, pure ()] -- shorter come last; nicer for early dev/debug
+perhaps a = alts "perhaps" [a, pure ()] -- shorter come last; nicer for early dev/debug
 
 -- TODO: only spill if these location map to some expression
 

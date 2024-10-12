@@ -19,6 +19,7 @@ type Byte = Word8
 type Code = [Instruction]
 
 data Instruction = Tx ITransfer | Comp ICompute | Clc
+  deriving Eq
 
 data ITransfer
   = Tax | Txa | Tya
@@ -27,6 +28,7 @@ data ITransfer
   | Sta ZeroPage
   | Stx ZeroPage
   | Sty ZeroPage
+  deriving Eq
 
 data ICompute
   = Adcz ZeroPage
@@ -36,6 +38,7 @@ data ICompute
   | Inx
   | Incz ZeroPage
   | Asla
+  deriving Eq
 
 ----------------------------------------------------------------------
 -- instruction semantics
@@ -86,7 +89,7 @@ type SemState = Map Loc [Exp]
 -- Arg, Loc
 
 -- TODO: move Arg to Is5-CodeGen (once stop its use in Emulation)
-data Arg = Loc Loc | Imm Immediate
+data Arg = Loc Loc | Imm Immediate deriving (Eq)
 
 data Loc = RegA | RegX | RegY | ZP ZeroPage
   deriving (Eq,Ord)
