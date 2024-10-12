@@ -1,13 +1,18 @@
 module Is5 (main) where
 
 import Asm (Cost,Asm(..),runAsm,Temps(..))
+import Control.Monad (when)
+import Data.List (partition)
+import Data.Word (Word8)
 import Emulate (Env,MachineState,initMS,emulate)
 import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),Arg(..),Loc(..),ZeroPage(..),Immediate(..),SemState,noSemantics,transferSemantics,computeSemantics)
 import Language (Exp(..),Form(..),Op1(..),Op2(..),Var,EvalEnv,eval)
-import Util (extend)
-
-import qualified Data.Map as Map
 import Text.Printf (printf)
+import Util (extend)
+import qualified Cost
+import qualified Data.Map as Map
+
+type Byte = Word8
 
 -- TODO: split out modules for: Codegen, Compilation, and testing
 
@@ -114,8 +119,6 @@ runTests = do
 
       , let_ "t1" (asl (add (num 1) (var z))) (add (var z2) (var "t1"))
 
-      , add (num 1) (var z)
-
       ]
 
   printf "(eval)env = %s\n" (show ee)
@@ -128,27 +131,41 @@ runTests = do
 semStateOfEnv :: Env -> SemState
 semStateOfEnv env = Map.fromList [ (loc,[Exp (Var x)]) | (x,loc) <- Map.toList env ]
 
+
 run1 :: SemState -> EvalEnv -> MachineState -> Exp -> IO ()
 run1 state ee ms0 example = do
   printf "\nexample = %s\n" (show example)
   let eres = eval ee example
-  --printf "eres = %d\n" eres
   let temps1 = Temps [ZeroPage n | n <- [7..19]]
-  let rs :: [Res] = runAsm temps1 state (compile0 example)
+  let rs :: [Res] = runAsm Cost.lessTime temps1 state (compile0 example)
   let num = length rs
   if num == 0 then error "#results==0" else pure ()
   let
-    prRes :: (Int, Res) -> IO ()
-    prRes (i,(code,cost,arg)) = do
-      let mres = emulate ms0 (code,arg)
+    prRes :: (Res,Byte) -> IO ()
+    prRes ((code,cost,arg),mres) = do
       let same = (mres == eres)
-      let ok :: String = if same then " {ok}" else printf " {FAIL: different: %d}" mres
-      printf "#%d:{%s}: %s --> %s%s\n" i (show cost) (show code) (show arg) ok
-      if not same then error "not ok" else pure ()
+      let ok :: String = if same then "" else printf " {FAIL: different: %d}" mres
+      printf "{%s}: %s --> %s%s\n" (show cost) (show code) (show arg) ok
 
-  mapM_ prRes (zip [1..] rs)
+  let rsWithEmu = [ (r, emulate ms0 (code,arg)) | r@(code,_,arg) <- rs ]
+  let (ok,bad) = partition correct rsWithEmu
+        where correct (_,mres) = (mres==eres)
+
+  when (length bad > 0) $ do
+    printf "eval -> %d\n" eres
+
+  let n = 3
+  printf "#results=%d\n" (length rs)
+  mapM_ prRes (take n ok)
+
+  when (length bad > 0) $ do
+    printf "#bad results = %d\n" (length bad)
+    mapM_ prRes bad
+    error "*bad result*"
+
 
 type Res = (Code,Cost,Arg)
+
 
 compile0 :: Exp -> Asm Arg
 compile0 exp = do
