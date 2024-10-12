@@ -3,6 +3,7 @@ module Language
   , EvalEnv, eval
   ) where
 
+import Data.Bits (xor)
 import Data.Map (Map)
 import Data.Word (Word8)
 import Text.Printf (printf)
@@ -19,10 +20,10 @@ data Exp = Exp (Form Exp)
 data Form e = Var Var | Num Byte | Op2 Op2 e e | Op1 Op1 e | Let Var e e
   deriving (Eq)
 
-data Op1 = Asl -- | Lsr
+data Op1 = Asl
   deriving (Eq)
 
-data Op2 = Add -- | Sub
+data Op2 = Add | Xor
   deriving (Eq)
 
 type Var = String
@@ -39,6 +40,7 @@ eval ee (Exp form) =
     Var x -> look "eval" ee x
     Op1 Asl exp1 -> 2 * eval ee exp1
     Op2 Add exp1 exp2 -> eval ee exp1 + eval ee exp2
+    Op2 Xor exp1 exp2 -> eval ee exp1 `xor` eval ee exp2
     Let x rhs body -> eval (extend ee x (eval ee rhs)) body
 
 ----------------------------------------------------------------------
@@ -53,4 +55,5 @@ instance Show a => Show (Form a) where
     Var x -> x
     Op1 Asl e -> printf "(%s << 1)" (show e)
     Op2 Add e1 e2 -> printf "(%s + %s)" (show e1) (show e2)
+    Op2 Xor e1 e2 -> printf "(%s ^ %s)" (show e1) (show e2)
     Let x rhs body -> printf "(let %s = %s in %s)" x (show rhs) (show body)

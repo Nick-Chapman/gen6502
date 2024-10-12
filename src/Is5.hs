@@ -36,6 +36,7 @@ runTests = do
   let num n = Exp (Num n)
   let var x = Exp (Var x)
   let add e1 e2 = Exp (Op2 Add e1 e2)
+  let xor e1 e2 = Exp (Op2 Xor e1 e2)
   let asl e = Exp (Op1 Asl e)
   let let_ x e1 e2 = Exp (Let x e1 e2)
 
@@ -119,6 +120,9 @@ runTests = do
 
       , let_ "t1" (asl (add (num 1) (var z))) (add (var z2) (var "t1"))
 
+      , xor (var a) (asl (var a))
+      , xor (var a) (asl (asl (var a)))
+--      , xor (xor (var a) (asl (var a))) (asl (asl (var a))) -- TODO: spill needed
       ]
 
   printf "(eval)env = %s\n" (show ee)
@@ -159,9 +163,9 @@ run1 state ee ms0 example = do
   mapM_ prRes (take n ok)
 
   when (length bad > 0) $ do
-    printf "#bad results = %d\n" (length bad)
+    printf "#bad=%d\n" (length bad)
     mapM_ prRes bad
-    error "*bad result*"
+    error "*BAD*"
 
 
 type Res = (Code,Cost,Arg)
@@ -272,18 +276,20 @@ select :: [Gen] -> Gen
 select gs = \e f -> alts [ g e f | g <- gs ]
 
 codegen :: Gen
-codegen = select [doubling,addition,incrementX,incrementM]
+codegen = select [doubling,addition,xor,incrementX,incrementM]
 
 doubling :: Gen
 doubling e = \case
   Op1 Asl arg -> do loadA arg; comp e Asla
   _ -> Nope
 
+-- TODO: perhaps spillA after each codegen
+
 addition :: Gen
 addition e = \case
   Op2 Add (Loc RegA) arg -> do addIntoA e arg
   Op2 Add arg (Loc RegA) -> do addIntoA e arg
-  Op2 Add arg1 arg2 -> do loadA arg1; addIntoA e arg2 --; perhaps spillA -- TODO
+  Op2 Add arg1 arg2 -> do loadA arg1; addIntoA e arg2
   _ -> Nope
 
 addIntoA :: Exp -> Arg -> Asm ()
@@ -293,6 +299,22 @@ addIntoA e = \case
   Loc RegX -> Nope
   Loc RegY -> Nope
   Loc (ZP z) -> do clc; comp e  (Adcz z)
+
+xor :: Gen
+xor e = \case
+  Op2 Xor (Loc RegA) arg -> do eorIntoA e arg
+  Op2 Xor arg (Loc RegA) -> do eorIntoA e arg
+  Op2 Xor arg1 arg2 -> do loadA arg1; eorIntoA e arg2
+  _ -> Nope
+
+eorIntoA :: Exp -> Arg -> Asm ()
+eorIntoA e = \case
+  Imm imm -> do clc; comp e (Eori imm)
+  Loc RegA -> Nope -- or assign fixed bit pattern
+  Loc RegX -> Nope
+  Loc RegY -> Nope
+  Loc (ZP z) -> do clc; comp e  (Eorz z)
+
 
 incrementX :: Gen -- TODO Y like X
 incrementX e = \case

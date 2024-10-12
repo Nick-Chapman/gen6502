@@ -31,6 +31,8 @@ data ITransfer
 data ICompute
   = Adcz ZeroPage
   | Adci Immediate
+  | Eorz ZeroPage
+  | Eori Immediate
   | Inx
   | Incz ZeroPage
   | Asla
@@ -55,6 +57,8 @@ computeSemantics :: Exp -> ICompute -> Semantics
 computeSemantics e = \case
   Adci{} -> overwrite e RegA
   Adcz{} -> overwrite e RegA
+  Eori{} -> overwrite e RegA
+  Eorz{} -> overwrite e RegA
   Inx -> overwrite e RegX
   Incz z -> overwrite e (ZP z)
   Asla -> overwrite e RegA
@@ -126,6 +130,8 @@ instance Show ICompute where
   show = \case
     Adci v -> printf "adc %s" (show v)
     Adcz z -> printf "adc %s" (show z)
+    Eori v -> printf "eor %s" (show v)
+    Eorz z -> printf "eor %s" (show z)
     Inx -> "inx"
     Incz z -> printf "inc %s" (show z)
     Asla -> "asl a"

@@ -2,6 +2,7 @@ module Emulate
   ( MachineState, initMS, emulate, Env
   ) where
 
+import Data.Bits (xor)
 import Data.Map (Map)
 import Data.Word (Word8)
 import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),Immediate(..),Arg(..),Loc(..))
@@ -63,6 +64,8 @@ step ms@MS{m} = do
       case i of
         Adci (Immediate b) -> up a (get a + b)
         Adcz z -> up a (get a + get (ZP z))
+        Eori (Immediate b) -> up a (get a `xor` b)
+        Eorz z -> up a (get a `xor` get (ZP z))
         Inx -> up x (get x + 1)
         Incz z -> up (ZP z) (get (ZP z) + 1)
         Asla -> up a (2 * get a)
