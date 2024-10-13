@@ -1,7 +1,4 @@
 *gen6502*
-"*Is4*"
-(eval)env = fromList [("a",13),("x",42),("y",101),("z",19),("z2",28)]
-ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 
 [1]example = 77
 #results=8

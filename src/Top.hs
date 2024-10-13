@@ -1,8 +1,8 @@
 module Top where
 
-import qualified Is5
+import qualified Testing
 
 main :: IO ()
 main = do
   putStrLn "*gen6502*"
-  Is5.main
+  Testing.runTests
