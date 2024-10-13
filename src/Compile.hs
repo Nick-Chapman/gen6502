@@ -3,10 +3,8 @@ module Compile
   ) where
 
 import Asm (Asm(..))
-import Codegen (Arg(..),everywhere,perhaps,spillA,spillX,spillY,locations,codegen,alts)
-import Instruction (Loc(..),SemState)
+import Codegen (Arg(..),perhaps,spillA,spillX,spillY,locations,codegen)
 import Language (Exp(..),Form(..))
-import Util (extend)
 import qualified Data.Map as Map
 
 compile0 :: Exp -> Asm Arg
@@ -49,35 +47,3 @@ compileU exp@(Exp form) = do
       arg1 <- locations exp1
       arg2 <- locations exp2
       codegen exp (Op2 op2 arg1 arg2)
-
-    -- TODO redo Let exps to pay no attention to user vars,
-    -- and just recompile the exp every tume
-    -- but finding the previous compilation anyway
-    Let x rhs body -> do
-      compile rhs
-      -- TODO: dont do linkage with non-determinism (alts)
-      arg <- locations rhs
-      let e = Exp (Var x)
-      linkE e arg
-      compile body
-      loc <- locations body
-      linkE exp loc
-
-
-linkE :: Exp -> Arg -> Asm ()
-linkE e = \case
-  Imm{} -> pure()
-  MLoc located -> do
-    loc <- alts [ pure loc | loc <- (everywhere located) ] -- short term hack
-    updateSemState (linkExp e loc)
-
--- TODO : Have Asm primitive to link Var(Exp) to a Location. Avoid need for {Get,Set}SemanticState
-linkExp :: Exp -> Loc -> SemState -> SemState
-linkExp e loc s = do
-  let es = case Map.lookup loc s of Just es -> es; Nothing -> []
-  extend s loc (e:es)
-
-updateSemState :: (SemState -> SemState) -> Asm ()
-updateSemState f = do
-  ss <- GetSemState
-  SetSemState (f ss)

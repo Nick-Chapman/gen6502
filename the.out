@@ -357,73 +357,19 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 {11/19}: [sta 7,asl a,sta 8,eor 7,asl 8,eor 8] --> [A]
 {11/21}: [sta 7,asl a,eor 7,asl 7,asl 7,eor 7] --> [A]
 
-[60]example = (let t1 = a in t1)
-#results=12
-{0/0}: [] --> [A]
-{2/3}: [stx 7] --> [A]
-{2/3}: [sty 7] --> [A]
-
-[61]example = (let t1 = x in t1)
-#results=12
-{0/0}: [] --> [X]
-{2/3}: [stx 7] --> [X]
-{2/3}: [stx 7] --> [ZP-7]
-
-[62]example = (let t1 = y in t1)
-#results=12
-{0/0}: [] --> [Y]
-{2/3}: [stx 7] --> [Y]
-{2/3}: [sty 7] --> [Y]
-
-[63]example = (let t1 = z in t1)
-#results=8
-{0/0}: [] --> [ZP-1]
-{2/3}: [stx 7] --> [ZP-1]
-{2/3}: [sty 7] --> [ZP-1]
-
-[64]example = (let t1 = a in (t1 + t1))
-#results=36
-{1/2}: [asl a] --> [A]
-{3/5}: [stx 7,asl a] --> [A]
-{3/5}: [sty 7,asl a] --> [A]
-
-[65]example = (let t1 = x in (t1 + t1))
-#results=12
-{7/11}: [stx 7,lda 7,clc,adc 7] --> [A]
-{9/14}: [stx 7,sty 8,lda 7,clc,adc 7] --> [A]
-{9/14}: [stx 7,sta 8,lda 7,clc,adc 7] --> [A]
-
-[66]example = (let t1 = y in (t1 + t1))
-#results=12
-{7/11}: [sty 7,lda 7,clc,adc 7] --> [A]
-{9/14}: [stx 7,sty 8,lda 8,clc,adc 8] --> [A]
-{9/14}: [sty 7,sta 8,lda 7,clc,adc 7] --> [A]
-
-[67]example = (let t1 = z in (t1 + t1))
-#results=24
-{5/8}: [lda 1,clc,adc 1] --> [A]
-{7/11}: [stx 7,lda 1,clc,adc 1] --> [A]
-{7/11}: [sty 7,lda 1,clc,adc 1] --> [A]
-
-[68]example = (let t1 = ((1 + z) << 1) in (z2 + t1))
-#results=600
-{8/14}: [ldx 1,inx,txa,asl a,clc,adc 2] --> [A]
-{8/14}: [ldy 1,iny,tya,asl a,clc,adc 2] --> [A]
-{9/14}: [lda #1,clc,adc 1,asl a,clc,adc 2] --> [A]
-
-[69]example = (((x << 1) ^ (y << 1)) ^ ((z << 1) ^ (a << 1)))
+[60]example = (((x << 1) ^ (y << 1)) ^ ((z << 1) ^ (a << 1)))
 #results=476
 {21/36}: [sta 7,txa,asl a,sta 8,tya,asl a,eor 8,sta 9,lda 1,asl a,asl 7,eor 7,eor 9] --> [A]
 {21/36}: [sta 7,txa,asl a,sta 8,tya,asl a,eor 8,sta 9,asl 1,lda 7,asl a,eor 1,eor 9] --> [A]
 {21/37}: [stx 7,sta 8,asl 7,tya,asl a,eor 7,sta 9,lda 1,asl a,asl 8,eor 8,eor 9] --> [A]
 
-[70]example = (((a + x) + (y + z)) + ((x + y) + (z + a)))
+[61]example = (((a + x) + (y + z)) + ((x + y) + (z + a)))
 #results=32
 {35/57}: [stx 7,sta 8,clc,adc 7,sta 9,tya,clc,adc 1,clc,adc 9,sta 10,tya,clc,adc 7,sta 11,lda 1,clc,adc 8,clc,adc 11,clc,adc 10] --> [A]
 {37/60}: [stx 7,sty 8,sta 9,clc,adc 7,sta 10,tya,clc,adc 1,clc,adc 10,sta 11,txa,clc,adc 8,sta 12,lda 1,clc,adc 9,clc,adc 12,clc,adc 11] --> [A]
 {37/60}: [stx 7,sta 8,clc,adc 7,sta 9,tya,clc,adc 1,clc,adc 9,sta 10,tya,clc,adc 7,sta 11,lda 1,clc,adc 8,clc,adc 11,clc,adc 10,sta 12] --> [A,ZP-12]
 
-[71]example = (((a ^ x) ^ (y ^ z)) ^ ((x ^ y) ^ (z ^ a)))
+[62]example = (((a ^ x) ^ (y ^ z)) ^ ((x ^ y) ^ (z ^ a)))
 #results=32
 {28/43}: [stx 7,sta 8,eor 7,sta 9,tya,eor 1,eor 9,sta 10,tya,eor 7,sta 11,lda 1,eor 8,eor 11,eor 10] --> [A]
 {30/46}: [stx 7,sty 8,sta 9,eor 7,sta 10,tya,eor 1,eor 10,sta 11,txa,eor 8,sta 12,lda 1,eor 9,eor 12,eor 11] --> [A]

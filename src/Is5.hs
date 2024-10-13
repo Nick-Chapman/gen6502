@@ -36,7 +36,6 @@ runTests = do
   let add e1 e2 = Exp (Op2 Add e1 e2)
   let xor e1 e2 = Exp (Op2 Xor e1 e2)
   let asl e = Exp (Op1 Asl e)
-  let let_ x e1 e2 = Exp (Let x e1 e2)
 
   let a = var "a"
   let x = var "x"
@@ -121,17 +120,6 @@ runTests = do
       , xor (add z (num 1)) (add z (num 1))
 
       , xor (xor a (asl a)) (asl (asl a))
-
-
-      , let_ "t1" a (var "t1")
-      , let_ "t1" x (var "t1")
-      , let_ "t1" y (var "t1")
-      , let_ "t1" z (var "t1")
-      , let_ "t1" a (add (var "t1") (var "t1"))
-      , let_ "t1" x (add (var "t1") (var "t1"))
-      , let_ "t1" y (add (var "t1") (var "t1"))
-      , let_ "t1" z (add (var "t1") (var "t1"))
-      , let_ "t1" (asl (add (num 1) z)) (add z2 (var "t1"))
 
       -- , var "b" -- should fail because no in env, rather than no final location
 
