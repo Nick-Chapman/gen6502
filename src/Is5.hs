@@ -5,7 +5,7 @@ import Codegen (Arg(..),somewhere)
 import Compile (compile0)
 import Control.Monad (when)
 import Emulate (Env,MachineState,initMS,emulate)
-import Instruction (Loc(..),ZeroPage(..),Immediate(..),SemState)
+import Instruction (Reg(..),ZeroPage(..),Immediate(..),SemState)
 import Language (Exp(..),Form(..),Op1(..),Op2(..),EvalEnv,eval)
 import Text.Printf (printf)
 import qualified Cost
@@ -202,7 +202,7 @@ run1 state ee ms0 (i,example) = do
   let
     a_emulate code = \case
       Imm (Immediate b) -> b
-      MLoc located ->
+      Loc located ->
         case somewhere located of
           Just loc -> emulate ms0 code loc
           Nothing -> error "no final location"

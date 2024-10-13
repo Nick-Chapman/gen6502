@@ -1,33 +1,62 @@
 module Codegen
   ( Arg(..)
-  , locations
-  , somewhere, everywhere
-  , perhaps, spillA, spillX, spillY
-  , codegen
-  , alts
+  , preamble, codegen, locations
+  , somewhere
   ) where
 
 import Asm (Asm(..))
-import Instruction (Instruction(..),ITransfer(..),ICompute(..),Loc(..),ZeroPage(..),Immediate(..),noSemantics,transferSemantics,computeSemantics)
+import Instruction (Instruction(..),ITransfer(..),ICompute(..),Reg(..),ZeroPage(..),Immediate(..),noSemantics,transferSemantics,computeSemantics)
 import Language (Exp(..),Form(..),Op2(..),Op1(..))
 import qualified Data.Map as Map
 
+----------------------------------------------------------------------
+-- Arg
+
+data Arg = Imm Immediate | Loc Located deriving (Eq)
+
+data Located = Located { a,x,y::Bool,z::Maybe ZeroPage } deriving (Eq)
+
+instance Show Located where
+  show located = show (everywhere located)
+
+instance Show Arg where
+  show = \case
+    Imm imm -> show imm
+    Loc located  -> show located
+
+----------------------------------------------------------------------
+-- instruction selection and code generation
+
 type Gen = Exp -> Form Arg -> Asm ()
+
+preamble :: Asm ()
+preamble = do
+  perhaps spillX
+  perhaps spillY
+  perhaps spillA
+
+codegen :: Gen
+codegen = select
+  [ do driveA `conclude` perhaps2 spillA
+  , do driveX `conclude` perhaps2 spillX
+  , do driveY `conclude` perhaps2 spillY
+  , do driveZ
+  ]
+
+driveA,driveX,driveY,driveZ :: Gen
+driveA = select [doublingA,addition,subtraction,xor]
+driveX = select [incrementX]
+driveY = select [incrementY]
+driveZ = select [incrementZ,doublingZ]
+
+select :: [Gen] -> Gen
+select gs = \e f -> alternatives [ g e f | g <- gs ]
+
+conclude :: Gen -> Asm () -> Gen
+conclude gen afterwards = \e f -> do gen e f; afterwards
 
 ----------------------------------------------------------------------
 -- instruction selection
-
-codegen :: Gen
-codegen = select [ driveA, driveX, driveY, driveZ ]
-
-select :: [Gen] -> Gen
-select gs = \e f -> alts [ g e f | g <- gs ]
-
-driveA,driveX,driveY,driveZ :: Gen
-driveA = maybePostSpillA $ select [doublingA,addition,subtraction,xor]
-driveX = maybePostSpillX $ select [incrementX]
-driveY = maybePostSpillY $ select [incrementY]
-driveZ = select [incrementZ,doublingZ]
 
 doublingA :: Gen
 doublingA = \e ->  \case
@@ -51,7 +80,7 @@ addition = \e -> \case
 addIntoA :: Exp -> Arg -> Asm ()
 addIntoA e = \case
   Imm imm -> do clc; comp e (Adci imm)
-  MLoc Located{z} ->
+  Loc Located{z} ->
     -- only location: Z (not A,X,Y)
     case z of
       Just z -> do clc; comp e (Adcz z)
@@ -69,7 +98,7 @@ subtraction = \e -> \case
 subIntoA :: Exp -> Arg -> Asm ()
 subIntoA e = \case
   Imm imm -> do sec; comp e (Sbci imm)
-  MLoc Located{z} ->
+  Loc Located{z} ->
     -- only location: Z (not A,X,Y)
     case z of
       Just z -> do sec; comp e (Sbcz z)
@@ -89,7 +118,7 @@ xor = \e -> \case
 eorIntoA :: Exp -> Arg -> Asm ()
 eorIntoA e = \case
   Imm imm -> do comp e (Eori imm)
-  MLoc Located{z} ->
+  Loc Located{z} ->
     -- only location: Z (not A,X,Y)
     case z of
       Just z -> do comp e (Eorz z)
@@ -121,7 +150,7 @@ doublingZ = \e ->  \case
 inZP :: Arg -> Asm ZeroPage
 inZP = \case
   Imm{} -> Nope
-  MLoc Located{z} ->
+  Loc Located{z} ->
     case z of
       Just z -> pure z
       Nothing -> Nope
@@ -131,7 +160,7 @@ inZP = \case
 loadA :: Arg -> Asm ()
 loadA = \case
   Imm imm -> trans (Ldai imm)
-  MLoc Located{a,x,y,z} ->
+  Loc Located{a,x,y,z} ->
     -- prefer location: A,X,Y,Z
     if a then pure () else do
       if x then trans Txa else do
@@ -143,7 +172,7 @@ loadA = \case
 loadX :: Arg -> Asm ()
 loadX = \case
   Imm imm -> trans (Ldxi imm)
-  MLoc Located{a,x,y,z} ->
+  Loc Located{a,x,y,z} ->
     -- prefer location: X,A,Z (not Y)
     if x then pure () else do
       if a then trans Tax else
@@ -156,7 +185,7 @@ loadX = \case
 loadY :: Arg -> Asm ()
 loadY = \case
   Imm imm -> trans (Ldyi imm)
-  MLoc Located{a,x,y,z} ->
+  Loc Located{a,x,y,z} ->
     -- prefer location: Y,A,Z (not X)
     if y then pure () else do
       if a then trans Tay else
@@ -174,18 +203,6 @@ sec = Emit Sec noSemantics
 
 ----------------------------------------------------------------------
 -- spilling...
-
-perhaps :: Asm () -> Asm ()
-perhaps a = alts [a, pure ()]
-
-maybePostSpillA :: Gen -> Gen
-maybePostSpillA g e f = Alt (g e f) (do g e f; spillA)
-
-maybePostSpillX :: Gen -> Gen
-maybePostSpillX g e f = Alt (g e f) (do g e f; spillX)
-
-maybePostSpillY :: Gen -> Gen
-maybePostSpillY g e f = Alt (g e f) (do g e f; spillY)
 
 spillA :: Asm ()
 spillA = do
@@ -208,20 +225,19 @@ trans i = Emit (Tx i) (transferSemantics i)
 comp :: Exp -> ICompute -> Asm ()
 comp e i = Emit (Comp i) (computeSemantics e i)
 
-alts :: [Asm a] -> Asm a
-alts = \case
+alternatives :: [Asm a] -> Asm a
+alternatives = \case
   [] -> Nope
   x:xs -> foldl Alt x xs
 
+perhaps :: Asm () -> Asm ()
+perhaps a = Alt a (pure ())
+
+perhaps2 :: Asm () -> Asm ()
+perhaps2 a = Alt (pure ()) a
+
 ----------------------------------------------------------------------
--- Arg
-
-data Arg = Imm Immediate | MLoc Located deriving (Eq)
-
-instance Show Arg where
-  show = \case
-    Imm imm -> show imm
-    MLoc located  -> show located
+-- Located
 
 locations :: Exp -> Asm Arg
 locations = \case
@@ -229,36 +245,10 @@ locations = \case
   exp -> do
     state <- GetSemState
     let xs = [ loc | (loc,exps) <- Map.toList state, exp `elem` exps ]
-    pure (MLoc (classifyLocs xs))
+    pure (Loc (classifyRegs xs))
 
-----------------------------------------------------------------------
--- Located
-
-data Located = Located { a,x,y::Bool,z::Maybe ZeroPage } deriving (Eq)
-
-instance Show Located where
-  show located = show (everywhere located)
-
-everywhere :: Located -> [Loc]
-everywhere Located{a,x,y,z} = do
-  concat
-    [ if a then [RegA] else []
-    , if x then [RegX] else []
-    , if y then [RegY] else []
-    , case z of Just z -> [ZP z]; Nothing -> []
-    ]
-
-somewhere :: Located -> Maybe Loc
-somewhere Located{a,x,y,z} = do
-  if a then Just RegA else
-    if x then Just RegX else
-      if y then Just RegY else
-        case z of
-          Just z -> Just (ZP z)
-          Nothing -> Nothing
-
-classifyLocs :: [Loc] -> Located
-classifyLocs xs = do
+classifyRegs :: [Reg] -> Located
+classifyRegs xs = do
   let nowhere = Located { a = False, x = False, y = False, z = Nothing }
   let
     f acc = \case
@@ -268,13 +258,31 @@ classifyLocs xs = do
       ZP z -> acc { z = Just z }
   foldl f nowhere xs
 
+somewhere :: Located -> Maybe Reg
+somewhere Located{a,x,y,z} = do
+  if a then Just RegA else
+    if x then Just RegX else
+      if y then Just RegY else
+        case z of
+          Just z -> Just (ZP z)
+          Nothing -> Nothing
+
+everywhere :: Located -> [Reg]
+everywhere Located{a,x,y,z} = do
+  concat
+    [ if a then [RegA] else []
+    , if x then [RegX] else []
+    , if y then [RegY] else []
+    , case z of Just z -> [ZP z]; Nothing -> []
+    ]
+
 inAcc :: Arg -> Bool
 inAcc = \case
   Imm{} -> False
-  MLoc Located{a} -> a
+  Loc Located{a} -> a
 
 canOp :: Arg -> Bool
 canOp = \case
   Imm _ -> True
-  MLoc Located{z=Just{}} -> True
-  MLoc{} -> False
+  Loc Located{z=Just{}} -> True
+  Loc{} -> False

@@ -2,7 +2,7 @@ module Instruction
   ( Code, Instruction(..), ITransfer(..), ICompute(..)
   , ZeroPage(..), Immediate(..)
   , Semantics, transfer, overwrite, noSemantics, transferSemantics, computeSemantics
-  , SemState, Loc(..)
+  , SemState, Reg(..)
   ) where
 
 import Util (look,extend)
@@ -85,24 +85,24 @@ type Semantics = SemState -> SemState
 noSemantics :: Semantics
 noSemantics = id
 
-transfer :: Loc -> Loc -> Semantics
+transfer :: Reg -> Reg -> Semantics
 transfer src dest = \s -> extend s dest (getS src s)
 
-overwrite :: Exp -> Loc -> Semantics
+overwrite :: Exp -> Reg -> Semantics
 overwrite e loc s = extend s loc [e]
 
-getS :: Loc -> SemState -> [Exp]
+getS :: Reg -> SemState -> [Exp]
 getS loc s = look "getS" s loc
 
-type SemState = Map Loc [Exp]
+type SemState = Map Reg [Exp]
 
 ----------------------------------------------------------------------
--- Loc
+-- Reg
 
-data Loc = RegA | RegX | RegY | ZP ZeroPage
+data Reg = RegA | RegX | RegY | ZP ZeroPage
   deriving (Eq,Ord)
 
-instance Show Loc where
+instance Show Reg where
   show = \case
     RegA -> "A"
     RegX -> "X"

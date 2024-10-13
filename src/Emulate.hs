@@ -5,16 +5,16 @@ module Emulate
 import Data.Bits (xor)
 import Data.Map (Map)
 import Data.Word (Word8)
-import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),Immediate(..),Loc(..))
+import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),Immediate(..),Reg(..))
 import Language (Var,EvalEnv)
 import Util (look,extend)
 import qualified Data.Map as Map
 
 type Byte = Word8
 
-type Env = Map Var Loc
+type Env = Map Var Reg
 
-emulate :: MachineState -> Code -> Loc -> Byte
+emulate :: MachineState -> Code -> Reg -> Byte
 emulate ms0 code locFinal = steps ms0 code
   where
     steps ms = \case
@@ -24,7 +24,7 @@ emulate ms0 code locFinal = steps ms0 code
 ----------------------------------------------------------------------
 -- machine state
 
-data MachineState = MS { m :: Map Loc Byte } -- flags will go in here also
+data MachineState = MS { m :: Map Reg Byte } -- flags will go in here also
   deriving Show
 
 initMS :: Env -> EvalEnv -> MachineState
@@ -32,7 +32,7 @@ initMS env ee = do
   let m = Map.fromList [ (loc,look "initMS" ee var) | (var,loc) <- Map.toList env ]
   MS m
 
-get_loc :: MachineState -> Loc -> Byte
+get_loc :: MachineState -> Reg -> Byte
 get_loc MS{m} loc = look "get_loc" m loc
 
 ----------------------------------------------------------------------

@@ -3,15 +3,13 @@ module Compile
   ) where
 
 import Asm (Asm(..))
-import Codegen (Arg(..),perhaps,spillA,spillX,spillY,locations,codegen)
+import Codegen (Arg(..),preamble,codegen,locations)
 import Language (Exp(..),Form(..))
 import qualified Data.Map as Map
 
 compile0 :: Exp -> Asm Arg
 compile0 exp = do
-  perhaps spillX
-  perhaps spillY
-  perhaps spillA
+  preamble
   compile exp
   locations exp
   -- TODO: end up moving result to a specific location, probably A,
