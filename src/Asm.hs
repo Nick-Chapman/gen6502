@@ -6,7 +6,6 @@ import Control.Monad (ap,liftM)
 import Cost(Cost,cost)
 import Data.List (sortBy)
 import Instruction (Code,Instruction,ZeroPage,Semantics,SemState)
-import Text.Printf (printf)
 import qualified Cost
 
 instance Functor Asm where fmap = liftM
@@ -16,15 +15,14 @@ instance Monad Asm where (>>=) = Bind
 data Asm a where
   Ret :: a -> Asm a
   Bind :: Asm a -> (a -> Asm b) -> Asm b
-  Alt :: String -> Asm a -> Asm a -> Asm a
-  Nope :: String -> Asm a
+  Alt :: Asm a -> Asm a -> Asm a
+  Nope :: Asm a
   GetSemState :: Asm SemState
   SetSemState :: SemState -> Asm ()
   Fresh :: Asm ZeroPage
   Emit :: Instruction -> Semantics -> Asm ()
 
 type CostOrdering = Cost -> Cost -> Ordering
-
 
 runAsm :: CostOrdering -> Temps -> SemState -> Asm a -> IO [(Code,Cost,a)]
 runAsm costOrdering temps0 ss0 asm0 = do
@@ -41,7 +39,6 @@ runAsm costOrdering temps0 ss0 asm0 = do
 
     s0 = State { ss = ss0, temps = temps0 }
 
-    _x :: String = printf ""
     (+) = Cost.add
     zero = Cost.zero
 
@@ -61,14 +58,12 @@ runAsm costOrdering temps0 ss0 asm0 = do
           ]
         pure (concat xss)
 
-      Alt _tag m1 m2 -> do
-        --printf "Alt: %s\n" _tag
+      Alt m1 m2 -> do
         rs1 <- loop s m1
         rs2 <- loop s m2
         pure (rs1 ++ rs2)
 
-      Nope _tag -> do
-        --printf "--Nope[%s]\n" _tag
+      Nope -> do
         pure []
 
       GetSemState -> do

@@ -15,7 +15,6 @@ import qualified Data.List as List
 
 main :: IO ()
 main = do
-  let _ = (spillX,spillY,spillA,perhaps)
   print "*Is4*"
   runTests
 
@@ -234,7 +233,6 @@ compileU exp@(Exp form) = do
       arg <- locations rhs
       let e = Exp (Var x)
       linkE e arg
-      --checkFreeVarsLocatable body -- shortcut the fail.
       compile body
       loc <- locations body
       linkE exp loc
@@ -244,7 +242,7 @@ linkE :: Exp -> Arg -> Asm ()
 linkE e = \case
   Imm{} -> pure()
   MLoc located -> do
-    loc <- alts"" [ pure loc | loc <- (everywhere located) ] -- short term hack
+    loc <- alts [ pure loc | loc <- (everywhere located) ] -- short term hack
     updateSemState (linkExp e loc)
 
 -- TODO : Have Asm primitive to link Var(Exp) to a Location. Avoid need for {Get,Set}SemanticState
@@ -325,13 +323,10 @@ locations = \case
     let xs = [ loc | (loc,exps) <- Map.toList state, exp `elem` exps ]
     pure (MLoc (classifyLocs xs))
 
--- TODO remove tag debugging for Alt/Nope
-alts :: String -> [Asm a] -> Asm a
-alts tag xs = do
-  let n = length xs
-  foldl (\a (i,b) -> Alt (printf "%s[%d/%d]" tag i n) a b
-        ) (Nope tag) (zip [1::Int ..] xs)
--- TODO: optimize to avoid pointless final Alt/Nope
+alts :: [Asm a] -> Asm a
+alts = \case
+  [] -> Nope
+  x:xs -> foldl Alt x xs
 
 ----------------------------------------------------------------------
 -- instruction selection
@@ -339,7 +334,7 @@ alts tag xs = do
 type Gen = Exp -> Form Arg -> Asm ()
 
 select :: [Gen] -> Gen
-select gs = \e f -> alts "select" [ g e f | g <- gs ]
+select gs = \e f -> alts [ g e f | g <- gs ]
 
 codegen :: Gen
 codegen = select [ driveA, driveX, driveZ ]
@@ -350,17 +345,10 @@ driveA = maybePostSpillA $ select [doubling,addition,xor]
 driveX = maybePostSpillX $ select [incrementX]
 driveZ = select [incrementM]
 
-maybePostSpillA :: Gen -> Gen
-maybePostSpillA g e f = Alt "maybePostSpillA" (g e f) (do g e f; spillA)
-
-maybePostSpillX :: Gen -> Gen
-maybePostSpillX g e f = Alt "maybePostSpillX" (g e f) (do g e f; spillX)
-
-
 doubling :: Gen
 doubling = \e ->  \case
   Op1 Asl arg -> do loadA arg; comp e Asla
-  _ -> Nope"doubling"
+  _ -> Nope
 
 addition :: Gen
 addition = \e -> \case
@@ -374,7 +362,7 @@ addition = \e -> \case
           then do loadA arg1; addIntoA e arg2
           else do loadA arg2; addIntoA e arg1 -- swap
   _ ->
-    Nope"addition"
+    Nope
 
 addIntoA :: Exp -> Arg -> Asm ()
 addIntoA e = \case
@@ -383,7 +371,7 @@ addIntoA e = \case
     -- only location: Z (not A,X,Y)
     case z of
       Just z -> do clc; comp e (Adcz z)
-      Nothing -> Nope""
+      Nothing -> Nope
 
 xor :: Gen
 xor = \e -> \case
@@ -394,7 +382,7 @@ xor = \e -> \case
         then do loadA arg1; eorIntoA e arg2
         else do loadA arg2; eorIntoA e arg1 -- swap
   _ ->
-    Nope"xor"
+    Nope
 
 eorIntoA :: Exp -> Arg -> Asm ()
 eorIntoA e = \case
@@ -403,28 +391,27 @@ eorIntoA e = \case
     -- only location: Z (not A,X,Y)
     case z of
       Just z -> do comp e (Eorz z)
-      Nothing -> Nope""
+      Nothing -> Nope
 
 incrementX :: Gen -- TODO Y like X
 incrementX = \e -> \case
   Op2 Add arg (Imm 1) -> do loadX arg; comp e Inx
   Op2 Add (Imm 1) arg -> do loadX arg; comp e Inx
-  _ -> Nope"incrementX"
+  _ -> Nope
 
 incrementM :: Gen
 incrementM e = \case
   Op2 Add arg (Imm 1) -> do z <- inZP arg; comp e (Incz z)
   Op2 Add (Imm 1) arg -> do z <- inZP arg; comp e (Incz z)
-  _ -> Nope"incrementM"
+  _ -> Nope
 
 inZP :: Arg -> Asm ZeroPage
 inZP = \case
-  Imm{} -> Nope""
+  Imm{} -> Nope
   MLoc Located{z} ->
     case z of
       Just z -> pure z
-      Nothing -> Nope""
-
+      Nothing -> Nope
 
 -- TODO: compile time constant folding
 
@@ -441,7 +428,7 @@ loadA = \case
         if y then trans Tya else do
           case z of
             Just z -> trans (Ldaz z);
-            Nothing -> Nope""
+            Nothing -> Nope
 
 
 loadX :: Arg -> Asm ()
@@ -454,10 +441,9 @@ loadX = \case
         case z of
           Just z -> trans (Ldxz z);
           Nothing ->
-            if y then Nope"" else
+            if y then Nope else
               error "must be Located somewhere" -- is this true?
-              -- Nope"" -- instead just use Nope
-
+              -- Nope -- instead just use Nope
 
 clc :: Asm ()
 clc = Emit Clc noSemantics
@@ -473,9 +459,16 @@ comp e i = Emit (Comp i) (computeSemantics e i)
 -- spilling...
 
 perhaps :: Asm () -> Asm ()
-perhaps a = alts "perhaps" [a, pure ()] -- shorter come last; nicer for early dev/debug
+perhaps a = alts [a, pure ()]
 
 -- TODO: only spill if these location map to some expression
+-- TODO: better to split just before overwrite?
+
+maybePostSpillA :: Gen -> Gen
+maybePostSpillA g e f = Alt (g e f) (do g e f; spillA)
+
+maybePostSpillX :: Gen -> Gen
+maybePostSpillX g e f = Alt (g e f) (do g e f; spillX)
 
 spillA :: Asm ()
 spillA = do
