@@ -30,6 +30,7 @@ cost i = Cost { space, time } where (space,time) = space_time i
 space_time :: Instruction -> (Int,Int)
 space_time = \case
   Clc -> (1,2)
+  Sec -> (1,2)
   Tx i ->
     case i of
       Tax -> (1,2)
@@ -49,6 +50,8 @@ space_time = \case
     case i of
       Adci{} -> (2,3)
       Adcz{} -> (2,3)
+      Sbci{} -> (2,3)
+      Sbcz{} -> (2,3)
       Eori{} -> (2,3)
       Eorz{} -> (2,3)
       Inx -> (1,2)

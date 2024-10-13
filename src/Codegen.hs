@@ -24,7 +24,7 @@ select :: [Gen] -> Gen
 select gs = \e f -> alts [ g e f | g <- gs ]
 
 driveA,driveX,driveY,driveZ :: Gen
-driveA = maybePostSpillA $ select [doublingA,addition,xor]
+driveA = maybePostSpillA $ select [doublingA,addition,subtraction,xor]
 driveX = maybePostSpillX $ select [incrementX]
 driveY = maybePostSpillY $ select [incrementY]
 driveZ = select [incrementZ,doublingZ]
@@ -55,6 +55,24 @@ addIntoA e = \case
     -- only location: Z (not A,X,Y)
     case z of
       Just z -> do clc; comp e (Adcz z)
+      Nothing -> Nope
+
+
+subtraction :: Gen
+subtraction = \e -> \case
+  Op2 Sub arg1 arg2 ->
+    if inAcc arg1 then subIntoA e arg2 else
+      do loadA arg1; subIntoA e arg2
+  _ ->
+    Nope
+
+subIntoA :: Exp -> Arg -> Asm ()
+subIntoA e = \case
+  Imm imm -> do sec; comp e (Sbci imm)
+  MLoc Located{z} ->
+    -- only location: Z (not A,X,Y)
+    case z of
+      Just z -> do sec; comp e (Sbcz z)
       Nothing -> Nope
 
 xor :: Gen
@@ -151,14 +169,14 @@ loadY = \case
 clc :: Asm ()
 clc = Emit Clc noSemantics
 
+sec :: Asm ()
+sec = Emit Sec noSemantics
+
 ----------------------------------------------------------------------
 -- spilling...
 
 perhaps :: Asm () -> Asm ()
 perhaps a = alts [a, pure ()]
-
--- TODO: only spill if these location map to some expression
--- TODO: better to split just before overwrite?
 
 maybePostSpillA :: Gen -> Gen
 maybePostSpillA g e f = Alt (g e f) (do g e f; spillA)

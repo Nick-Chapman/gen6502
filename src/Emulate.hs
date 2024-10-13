@@ -47,6 +47,7 @@ step ms@MS{m} = do
   let up k v = ms { m = extend m k v }
   \case
     Clc -> ms
+    Sec -> ms
     Tx i ->
       case i of
         Tax -> up x (get a)
@@ -64,8 +65,11 @@ step ms@MS{m} = do
         Sty z -> up (ZP z) (get y)
     Comp i ->
       case i of
+        -- TODO: adc/sbc should read/set carry flag
         Adci (Immediate b) -> up a (get a + b)
         Adcz z -> up a (get a + get (ZP z))
+        Sbci (Immediate b) -> up a (get a - b)
+        Sbcz z -> up a (get a - get (ZP z))
         Eori (Immediate b) -> up a (get a `xor` b)
         Eorz z -> up a (get a `xor` get (ZP z))
         Inx -> up x (get x + 1)

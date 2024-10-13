@@ -249,127 +249,343 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 {3/4}: [ldy #14,iny] --> [Y]
 {5/7}: [stx 7,ldx #14,inx] --> [X]
 
-[42]example = (14 << 1)
+[42]example = (a - 1)
+#results=16
+{3/5}: [sec,sbc #1] --> [A]
+{5/8}: [stx 7,sec,sbc #1] --> [A]
+{5/8}: [sty 7,sec,sbc #1] --> [A]
+
+[43]example = (x - 1)
+#results=16
+{4/7}: [txa,sec,sbc #1] --> [A]
+{6/10}: [stx 7,txa,sec,sbc #1] --> [A]
+{6/10}: [sty 7,txa,sec,sbc #1] --> [A]
+
+[44]example = (y - 1)
+#results=16
+{4/7}: [tya,sec,sbc #1] --> [A]
+{6/10}: [stx 7,tya,sec,sbc #1] --> [A]
+{6/10}: [sty 7,tya,sec,sbc #1] --> [A]
+
+[45]example = (z - 1)
+#results=16
+{5/8}: [lda 1,sec,sbc #1] --> [A]
+{7/11}: [stx 7,lda 1,sec,sbc #1] --> [A]
+{7/11}: [sty 7,lda 1,sec,sbc #1] --> [A]
+
+[46]example = (1 - a)
+#results=8
+{7/10}: [sta 7,lda #1,sec,sbc 7] --> [A]
+{9/13}: [stx 7,sta 8,lda #1,sec,sbc 8] --> [A]
+{9/13}: [sty 7,sta 8,lda #1,sec,sbc 8] --> [A]
+
+[47]example = (1 - x)
+#results=8
+{7/10}: [stx 7,lda #1,sec,sbc 7] --> [A]
+{9/13}: [stx 7,sty 8,lda #1,sec,sbc 7] --> [A]
+{9/13}: [stx 7,sta 8,lda #1,sec,sbc 7] --> [A]
+
+[48]example = (1 - y)
+#results=8
+{7/10}: [sty 7,lda #1,sec,sbc 7] --> [A]
+{9/13}: [stx 7,sty 8,lda #1,sec,sbc 8] --> [A]
+{9/13}: [sty 7,sta 8,lda #1,sec,sbc 7] --> [A]
+
+[49]example = (1 - z)
+#results=16
+{5/7}: [lda #1,sec,sbc 1] --> [A]
+{7/10}: [stx 7,lda #1,sec,sbc 1] --> [A]
+{7/10}: [sty 7,lda #1,sec,sbc 1] --> [A]
+
+[50]example = (a - 2)
+#results=16
+{3/5}: [sec,sbc #2] --> [A]
+{5/8}: [stx 7,sec,sbc #2] --> [A]
+{5/8}: [sty 7,sec,sbc #2] --> [A]
+
+[51]example = (x - 2)
+#results=16
+{4/7}: [txa,sec,sbc #2] --> [A]
+{6/10}: [stx 7,txa,sec,sbc #2] --> [A]
+{6/10}: [sty 7,txa,sec,sbc #2] --> [A]
+
+[52]example = (y - 2)
+#results=16
+{4/7}: [tya,sec,sbc #2] --> [A]
+{6/10}: [stx 7,tya,sec,sbc #2] --> [A]
+{6/10}: [sty 7,tya,sec,sbc #2] --> [A]
+
+[53]example = (z - 2)
+#results=16
+{5/8}: [lda 1,sec,sbc #2] --> [A]
+{7/11}: [stx 7,lda 1,sec,sbc #2] --> [A]
+{7/11}: [sty 7,lda 1,sec,sbc #2] --> [A]
+
+[54]example = (3 - a)
+#results=8
+{7/10}: [sta 7,lda #3,sec,sbc 7] --> [A]
+{9/13}: [stx 7,sta 8,lda #3,sec,sbc 8] --> [A]
+{9/13}: [sty 7,sta 8,lda #3,sec,sbc 8] --> [A]
+
+[55]example = (3 - x)
+#results=8
+{7/10}: [stx 7,lda #3,sec,sbc 7] --> [A]
+{9/13}: [stx 7,sty 8,lda #3,sec,sbc 7] --> [A]
+{9/13}: [stx 7,sta 8,lda #3,sec,sbc 7] --> [A]
+
+[56]example = (3 - y)
+#results=8
+{7/10}: [sty 7,lda #3,sec,sbc 7] --> [A]
+{9/13}: [stx 7,sty 8,lda #3,sec,sbc 8] --> [A]
+{9/13}: [sty 7,sta 8,lda #3,sec,sbc 7] --> [A]
+
+[57]example = (3 - z)
+#results=16
+{5/7}: [lda #3,sec,sbc 1] --> [A]
+{7/10}: [stx 7,lda #3,sec,sbc 1] --> [A]
+{7/10}: [sty 7,lda #3,sec,sbc 1] --> [A]
+
+[58]example = (a - a)
+#results=8
+{5/8}: [sta 7,sec,sbc 7] --> [A]
+{7/11}: [stx 7,sta 8,sec,sbc 8] --> [A]
+{7/11}: [sty 7,sta 8,sec,sbc 8] --> [A]
+
+[59]example = (a - x)
+#results=8
+{5/8}: [stx 7,sec,sbc 7] --> [A]
+{7/11}: [stx 7,sty 8,sec,sbc 7] --> [A]
+{7/11}: [stx 7,sta 8,sec,sbc 7] --> [A]
+
+[60]example = (a - y)
+#results=8
+{5/8}: [sty 7,sec,sbc 7] --> [A]
+{7/11}: [stx 7,sty 8,sec,sbc 8] --> [A]
+{7/11}: [sty 7,sta 8,sec,sbc 7] --> [A]
+
+[61]example = (a - z)
+#results=16
+{3/5}: [sec,sbc 1] --> [A]
+{5/8}: [stx 7,sec,sbc 1] --> [A]
+{5/8}: [sty 7,sec,sbc 1] --> [A]
+
+[62]example = (x - a)
+#results=8
+{6/10}: [sta 7,txa,sec,sbc 7] --> [A]
+{8/13}: [stx 7,sta 8,txa,sec,sbc 8] --> [A]
+{8/13}: [sty 7,sta 8,txa,sec,sbc 8] --> [A]
+
+[63]example = (x - x)
+#results=8
+{6/10}: [stx 7,txa,sec,sbc 7] --> [A]
+{8/13}: [stx 7,sty 8,txa,sec,sbc 7] --> [A]
+{8/13}: [stx 7,sta 8,txa,sec,sbc 7] --> [A]
+
+[64]example = (x - y)
+#results=8
+{6/10}: [sty 7,txa,sec,sbc 7] --> [A]
+{8/13}: [stx 7,sty 8,txa,sec,sbc 8] --> [A]
+{8/13}: [sty 7,sta 8,txa,sec,sbc 7] --> [A]
+
+[65]example = (x - z)
+#results=16
+{4/7}: [txa,sec,sbc 1] --> [A]
+{6/10}: [stx 7,txa,sec,sbc 1] --> [A]
+{6/10}: [sty 7,txa,sec,sbc 1] --> [A]
+
+[66]example = (y - a)
+#results=8
+{6/10}: [sta 7,tya,sec,sbc 7] --> [A]
+{8/13}: [stx 7,sta 8,tya,sec,sbc 8] --> [A]
+{8/13}: [sty 7,sta 8,tya,sec,sbc 8] --> [A]
+
+[67]example = (y - x)
+#results=8
+{6/10}: [stx 7,tya,sec,sbc 7] --> [A]
+{8/13}: [stx 7,sty 8,tya,sec,sbc 7] --> [A]
+{8/13}: [stx 7,sta 8,tya,sec,sbc 7] --> [A]
+
+[68]example = (y - y)
+#results=8
+{6/10}: [sty 7,tya,sec,sbc 7] --> [A]
+{8/13}: [stx 7,sty 8,tya,sec,sbc 8] --> [A]
+{8/13}: [sty 7,sta 8,tya,sec,sbc 7] --> [A]
+
+[69]example = (y - z)
+#results=16
+{4/7}: [tya,sec,sbc 1] --> [A]
+{6/10}: [stx 7,tya,sec,sbc 1] --> [A]
+{6/10}: [sty 7,tya,sec,sbc 1] --> [A]
+
+[70]example = (z - a)
+#results=8
+{7/11}: [sta 7,lda 1,sec,sbc 7] --> [A]
+{9/14}: [stx 7,sta 8,lda 1,sec,sbc 8] --> [A]
+{9/14}: [sty 7,sta 8,lda 1,sec,sbc 8] --> [A]
+
+[71]example = (z - x)
+#results=8
+{7/11}: [stx 7,lda 1,sec,sbc 7] --> [A]
+{9/14}: [stx 7,sty 8,lda 1,sec,sbc 7] --> [A]
+{9/14}: [stx 7,sta 8,lda 1,sec,sbc 7] --> [A]
+
+[72]example = (z - y)
+#results=8
+{7/11}: [sty 7,lda 1,sec,sbc 7] --> [A]
+{9/14}: [stx 7,sty 8,lda 1,sec,sbc 8] --> [A]
+{9/14}: [sty 7,sta 8,lda 1,sec,sbc 7] --> [A]
+
+[73]example = (z - z)
+#results=16
+{5/8}: [lda 1,sec,sbc 1] --> [A]
+{7/11}: [stx 7,lda 1,sec,sbc 1] --> [A]
+{7/11}: [sty 7,lda 1,sec,sbc 1] --> [A]
+
+[74]example = (z - z2)
+#results=16
+{5/8}: [lda 1,sec,sbc 2] --> [A]
+{7/11}: [stx 7,lda 1,sec,sbc 2] --> [A]
+{7/11}: [sty 7,lda 1,sec,sbc 2] --> [A]
+
+[75]example = (17 - 19)
+#results=16
+{5/7}: [lda #17,sec,sbc #19] --> [A]
+{7/10}: [stx 7,lda #17,sec,sbc #19] --> [A]
+{7/10}: [sty 7,lda #17,sec,sbc #19] --> [A]
+
+[76]example = (14 - 1)
+#results=16
+{5/7}: [lda #14,sec,sbc #1] --> [A]
+{7/10}: [stx 7,lda #14,sec,sbc #1] --> [A]
+{7/10}: [sty 7,lda #14,sec,sbc #1] --> [A]
+
+[77]example = (1 - 14)
+#results=16
+{5/7}: [lda #1,sec,sbc #14] --> [A]
+{7/10}: [stx 7,lda #1,sec,sbc #14] --> [A]
+{7/10}: [sty 7,lda #1,sec,sbc #14] --> [A]
+
+[78]example = (14 << 1)
 #results=16
 {3/4}: [lda #14,asl a] --> [A]
 {5/7}: [stx 7,lda #14,asl a] --> [A]
 {5/7}: [sty 7,lda #14,asl a] --> [A]
 
-[43]example = (a << 1)
+[79]example = (a << 1)
 #results=20
 {1/2}: [asl a] --> [A]
 {3/5}: [stx 7,asl a] --> [A]
 {3/5}: [sty 7,asl a] --> [A]
 
-[44]example = (x << 1)
+[80]example = (x << 1)
 #results=20
 {2/4}: [txa,asl a] --> [A]
 {4/7}: [stx 7,txa,asl a] --> [A]
 {4/7}: [sty 7,txa,asl a] --> [A]
 
-[45]example = (y << 1)
+[81]example = (y << 1)
 #results=20
 {2/4}: [tya,asl a] --> [A]
 {4/7}: [stx 7,tya,asl a] --> [A]
 {4/7}: [sty 7,tya,asl a] --> [A]
 
-[46]example = (z << 1)
+[82]example = (z << 1)
 #results=24
 {2/5}: [asl 1] --> [ZP-1]
 {3/5}: [lda 1,asl a] --> [A]
 {4/8}: [stx 7,asl 1] --> [ZP-1]
 
-[47]example = ((a << 1) + a)
+[83]example = ((a << 1) + a)
 #results=24
 {6/10}: [sta 7,asl a,clc,adc 7] --> [A]
 {7/13}: [sta 7,asl 7,clc,adc 7] --> [A]
 {8/13}: [stx 7,sta 8,asl a,clc,adc 8] --> [A]
 
-[48]example = ((x << 1) + x)
+[84]example = ((x << 1) + x)
 #results=24
 {7/12}: [stx 7,txa,asl a,clc,adc 7] --> [A]
 {8/15}: [stx 7,asl 7,txa,clc,adc 7] --> [A]
 {9/15}: [stx 7,sty 8,txa,asl a,clc,adc 7] --> [A]
 
-[49]example = ((y << 1) + y)
+[85]example = ((y << 1) + y)
 #results=24
 {7/12}: [sty 7,tya,asl a,clc,adc 7] --> [A]
 {8/15}: [sty 7,asl 7,tya,clc,adc 7] --> [A]
 {9/15}: [stx 7,sty 8,tya,asl a,clc,adc 8] --> [A]
 
-[50]example = ((z << 1) + z)
+[86]example = ((z << 1) + z)
 #results=32
 {6/10}: [lda 1,asl a,clc,adc 1] --> [A]
 {8/13}: [stx 7,lda 1,asl a,clc,adc 1] --> [A]
 {8/13}: [sty 7,lda 1,asl a,clc,adc 1] --> [A]
 
-[51]example = ((a + 1) + (a + 1))
+[87]example = ((a + 1) + (a + 1))
 #results=72
 {4/7}: [clc,adc #1,asl a] --> [A]
 {6/10}: [stx 7,clc,adc #1,asl a] --> [A]
 {6/10}: [sty 7,clc,adc #1,asl a] --> [A]
 
-[52]example = ((17 + 19) + (17 + 19))
+[88]example = ((17 + 19) + (17 + 19))
 #results=32
 {6/9}: [lda #17,clc,adc #19,asl a] --> [A]
 {8/12}: [stx 7,lda #17,clc,adc #19,asl a] --> [A]
 {8/12}: [sty 7,lda #17,clc,adc #19,asl a] --> [A]
 
-[53]example = (a ^ (a << 1))
+[89]example = (a ^ (a << 1))
 #results=24
 {5/8}: [sta 7,asl a,eor 7] --> [A]
 {6/11}: [sta 7,asl 7,eor 7] --> [A]
 {7/11}: [stx 7,sta 8,asl a,eor 8] --> [A]
 
-[54]example = (a ^ ((a << 1) << 1))
+[90]example = (a ^ ((a << 1) << 1))
 #results=48
 {6/10}: [sta 7,asl a,asl a,eor 7] --> [A]
 {8/13}: [stx 7,sta 8,asl a,asl a,eor 8] --> [A]
 {8/13}: [sty 7,sta 8,asl a,asl a,eor 8] --> [A]
 
-[55]example = ((a + 1) ^ (a + 1))
+[91]example = ((a + 1) ^ (a + 1))
 #results=56
 {7/11}: [clc,adc #1,sta 7,eor 7] --> [A]
 {7/12}: [tax,inx,stx 7,txa,eor 7] --> [A]
 {7/12}: [tay,iny,sty 7,tya,eor 7] --> [A]
 
-[56]example = ((x + 1) ^ (x + 1))
+[92]example = ((x + 1) ^ (x + 1))
 #results=48
 {6/10}: [inx,stx 7,txa,eor 7] --> [A]
 {8/13}: [stx 7,inx,stx 8,txa,eor 8] --> [A]
 {8/13}: [sty 7,inx,stx 8,txa,eor 8] --> [A]
 
-[57]example = ((y + 1) ^ (y + 1))
+[93]example = ((y + 1) ^ (y + 1))
 #results=48
 {6/10}: [iny,sty 7,tya,eor 7] --> [A]
 {8/13}: [stx 7,iny,sty 8,tya,eor 8] --> [A]
 {8/13}: [sty 7,iny,sty 8,tya,eor 8] --> [A]
 
-[58]example = ((z + 1) ^ (z + 1))
+[94]example = ((z + 1) ^ (z + 1))
 #results=64
 {6/11}: [inc 1,lda 1,eor 1] --> [A]
 {8/13}: [ldx 1,inx,stx 7,txa,eor 7] --> [A]
 {8/13}: [ldy 1,iny,sty 7,tya,eor 7] --> [A]
 
-[59]example = ((a ^ (a << 1)) ^ ((a << 1) << 1))
+[95]example = ((a ^ (a << 1)) ^ ((a << 1) << 1))
 #results=136
 {10/19}: [sta 7,asl 7,eor 7,asl 7,eor 7] --> [A]
 {11/19}: [sta 7,asl a,sta 8,eor 7,asl 8,eor 8] --> [A]
 {11/21}: [sta 7,asl a,eor 7,asl 7,asl 7,eor 7] --> [A]
 
-[60]example = (((x << 1) ^ (y << 1)) ^ ((z << 1) ^ (a << 1)))
+[96]example = (((x << 1) ^ (y << 1)) ^ ((z << 1) ^ (a << 1)))
 #results=476
 {21/36}: [sta 7,txa,asl a,sta 8,tya,asl a,eor 8,sta 9,lda 1,asl a,asl 7,eor 7,eor 9] --> [A]
 {21/36}: [sta 7,txa,asl a,sta 8,tya,asl a,eor 8,sta 9,asl 1,lda 7,asl a,eor 1,eor 9] --> [A]
 {21/37}: [stx 7,sta 8,asl 7,tya,asl a,eor 7,sta 9,lda 1,asl a,asl 8,eor 8,eor 9] --> [A]
 
-[61]example = (((a + x) + (y + z)) + ((x + y) + (z + a)))
+[97]example = (((a + x) + (y + z)) + ((x + y) + (z + a)))
 #results=32
 {35/57}: [stx 7,sta 8,clc,adc 7,sta 9,tya,clc,adc 1,clc,adc 9,sta 10,tya,clc,adc 7,sta 11,lda 1,clc,adc 8,clc,adc 11,clc,adc 10] --> [A]
 {37/60}: [stx 7,sty 8,sta 9,clc,adc 7,sta 10,tya,clc,adc 1,clc,adc 10,sta 11,txa,clc,adc 8,sta 12,lda 1,clc,adc 9,clc,adc 12,clc,adc 11] --> [A]
 {37/60}: [stx 7,sta 8,clc,adc 7,sta 9,tya,clc,adc 1,clc,adc 9,sta 10,tya,clc,adc 7,sta 11,lda 1,clc,adc 8,clc,adc 11,clc,adc 10,sta 12] --> [A,ZP-12]
 
-[62]example = (((a ^ x) ^ (y ^ z)) ^ ((x ^ y) ^ (z ^ a)))
+[98]example = (((a ^ x) ^ (y ^ z)) ^ ((x ^ y) ^ (z ^ a)))
 #results=32
 {28/43}: [stx 7,sta 8,eor 7,sta 9,tya,eor 1,eor 9,sta 10,tya,eor 7,sta 11,lda 1,eor 8,eor 11,eor 10] --> [A]
 {30/46}: [stx 7,sty 8,sta 9,eor 7,sta 10,tya,eor 1,eor 10,sta 11,txa,eor 8,sta 12,lda 1,eor 9,eor 12,eor 11] --> [A]

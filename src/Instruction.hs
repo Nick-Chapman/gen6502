@@ -18,7 +18,7 @@ type Byte = Word8
 
 type Code = [Instruction]
 
-data Instruction = Tx ITransfer | Comp ICompute | Clc
+data Instruction = Tx ITransfer | Comp ICompute | Clc | Sec
   deriving Eq
 
 data ITransfer
@@ -34,6 +34,8 @@ data ITransfer
 data ICompute
   = Adcz ZeroPage
   | Adci Immediate
+  | Sbcz ZeroPage
+  | Sbci Immediate
   | Eorz ZeroPage
   | Eori Immediate
   | Inx | Iny
@@ -65,6 +67,8 @@ computeSemantics :: Exp -> ICompute -> Semantics
 computeSemantics e = \case
   Adci{} -> overwrite e RegA
   Adcz{} -> overwrite e RegA
+  Sbci{} -> overwrite e RegA
+  Sbcz{} -> overwrite e RegA
   Eori{} -> overwrite e RegA
   Eorz{} -> overwrite e RegA
   Inx -> overwrite e RegX
@@ -113,6 +117,7 @@ instance Show Instruction where
     Tx i -> show i
     Comp i -> show i
     Clc -> "clc"
+    Sec -> "sec"
 
 instance Show ITransfer where
   show = \case
@@ -137,6 +142,8 @@ instance Show ICompute where
     Asla -> "asl a"
     Aslz a -> oneArg "asl" a
     Adci a -> oneArg "adc" a
+    Sbcz a -> oneArg "sbc" a
+    Sbci a -> oneArg "sbc" a
     Adcz a -> oneArg "adc" a
     Eori a -> oneArg "eor" a
     Eorz a -> oneArg "eor" a
