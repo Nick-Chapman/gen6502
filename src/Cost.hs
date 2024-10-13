@@ -48,11 +48,11 @@ space_time = \case
       Sty{} -> (2,3)
   Comp i ->
     case i of
-      Adci{} -> (2,3)
+      Adci{} -> (2,2)
+      Sbci{} -> (2,2)
+      Eori{} -> (2,2)
       Adcz{} -> (2,3)
-      Sbci{} -> (2,3)
       Sbcz{} -> (2,3)
-      Eori{} -> (2,3)
       Eorz{} -> (2,3)
       Inx -> (1,2)
       Iny -> (1,2)
