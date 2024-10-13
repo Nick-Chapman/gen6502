@@ -18,7 +18,6 @@ data Asm a where
   Alt :: Asm a -> Asm a -> Asm a
   Nope :: Asm a
   GetSemState :: Asm SemState
-  SetSemState :: SemState -> Asm ()
   Fresh :: Asm ZeroPage
   Emit :: Instruction -> Semantics -> Asm ()
 
@@ -68,10 +67,6 @@ runAsm costOrdering temps0 ss0 asm0 = do
 
       GetSemState -> do
         pure [([],zero,s,ss)]
-
-      SetSemState ss -> do
-        let s' = s { ss }
-        pure [([],zero,s',())]
 
       Fresh -> do
         case temps of
