@@ -120,28 +120,30 @@ instance Show ITransfer where
     Tay -> "tay"
     Txa -> "txa"
     Tya -> "tya"
-    -- TODO: show one-arg print code
-    Ldai v -> printf "lda %s" (show v)
-    Ldaz z -> printf "lda %s" (show z)
-    Ldxi v -> printf "ldx %s" (show v)
-    Ldxz z -> printf "ldx %s" (show z)
-    Ldyi v -> printf "ldy %s" (show v)
-    Ldyz z -> printf "ldy %s" (show z)
-    Sta z -> printf "sta %s" (show z)
-    Stx z -> printf "stx %s" (show z)
-    Sty z -> printf "sty %s" (show z)
+    Ldai a -> oneArg "lda" a
+    Ldaz a -> oneArg "lda" a
+    Ldxi a -> oneArg "ldx" a
+    Ldxz a -> oneArg "ldx" a
+    Ldyi a -> oneArg "ldy" a
+    Ldyz a -> oneArg "ldy" a
+    Sta a -> oneArg "sta" a
+    Stx a -> oneArg "stx" a
+    Sty a -> oneArg "sty" a
 
 instance Show ICompute where
   show = \case
-    Adci v -> printf "adc %s" (show v)
-    Adcz z -> printf "adc %s" (show z)
-    Eori v -> printf "eor %s" (show v)
-    Eorz z -> printf "eor %s" (show z)
     Inx -> "inx"
     Iny -> "iny"
-    Incz z -> printf "inc %s" (show z)
     Asla -> "asl a"
-    Aslz z -> printf "asl %s" (show z)
+    Aslz a -> oneArg "asl" a
+    Adci a -> oneArg "adc" a
+    Adcz a -> oneArg "adc" a
+    Eori a -> oneArg "eor" a
+    Eorz a -> oneArg "eor" a
+    Incz a -> oneArg "inc" a
+
+oneArg :: Show a => String -> a -> String
+oneArg name x = printf "%s %s" name (show x)
 
 ----------------------------------------------------------------------
 -- ZeroPage & Immediate
@@ -157,4 +159,3 @@ instance Show ZeroPage where
 
 instance Show Immediate where
   show (Immediate b) = "#" ++ show b
-
