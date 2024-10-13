@@ -19,7 +19,7 @@ type Byte = Word8
 type Code = [Instruction]
 
 data Instruction = Tx ITransfer | Comp ICompute | Clc | Sec
-  deriving Eq
+  deriving (Eq,Ord)
 
 data ITransfer
   = Tax | Tay | Txa | Tya
@@ -29,7 +29,7 @@ data ITransfer
   | Sta ZeroPage
   | Stx ZeroPage
   | Sty ZeroPage
-  deriving Eq
+  deriving (Eq,Ord)
 
 data ICompute
   = Adcz ZeroPage
@@ -42,7 +42,7 @@ data ICompute
   | Incz ZeroPage
   | Asla
   | Aslz ZeroPage
-  deriving Eq
+  deriving (Eq,Ord)
 
 ----------------------------------------------------------------------
 -- instruction semantics

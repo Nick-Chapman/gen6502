@@ -31,9 +31,9 @@ type Gen = Exp -> Form Arg -> Asm ()
 
 preamble :: Asm ()
 preamble = do
-  perhaps spillX
-  perhaps spillY
-  perhaps spillA
+  _perhaps spillX
+  _perhaps spillY
+  _perhaps spillA
 
 codegen :: Gen
 codegen = select
@@ -42,6 +42,13 @@ codegen = select
   , do driveY `conclude` perhaps2 spillY
   , do driveZ
   ]
+
+_perhaps :: Asm () -> Asm ()
+_perhaps a = Alt a (pure ())
+
+perhaps2 :: Asm () -> Asm ()
+perhaps2 a = Alt (pure ()) a
+
 
 driveA,driveX,driveY,driveZ :: Gen
 driveA = select [doublingA,addition,subtraction,xor]
@@ -229,12 +236,6 @@ alternatives :: [Asm a] -> Asm a
 alternatives = \case
   [] -> Nope
   x:xs -> foldl Alt x xs
-
-perhaps :: Asm () -> Asm ()
-perhaps a = Alt a (pure ())
-
-perhaps2 :: Asm () -> Asm ()
-perhaps2 a = Alt (pure ()) a
 
 ----------------------------------------------------------------------
 -- Located

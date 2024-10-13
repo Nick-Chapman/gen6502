@@ -33,7 +33,11 @@ runAsm costOrdering temps0 ss0 asm0 = do
     -- TODO: produce results in cost order, rather than post-sorting
     sortByCost =
       if doSort
-      then sortBy (\(_,c1,_) (_,c2,_) -> costOrdering c1 c2)
+      then sortBy (\(code1,c1,_) (code2,c2,_) ->
+                     case costOrdering c1 c2 of
+                       EQ -> compare code1 code2 -- order determinism of tests
+                       x -> x
+                  )
       else id
 
     s0 = State { ss = ss0, temps = temps0 }

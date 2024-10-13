@@ -211,9 +211,6 @@ run1 state ee ms0 (i,example) = do
   let (ok,bad) = List.partition correct rsWithEmu
         where correct (_,mres) = (mres==eres)
 
-  let n = 3
-  mapM_ prRes (take n ok)
-
   when (length bad > 0) $ do
     printf "eval -> %d\n" eres
 
@@ -221,3 +218,7 @@ run1 state ee ms0 (i,example) = do
     printf "#bad=%d\n" (length bad)
     mapM_ prRes bad
     error "*BAD*"
+
+  let ((_,lowestCost,_),_) = head ok -- must be at least one ok
+  let best = takeWhile (\((_,cost,_),_) -> cost == lowestCost) ok
+  mapM_ prRes best
