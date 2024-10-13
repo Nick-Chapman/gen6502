@@ -133,8 +133,7 @@ loadX = \case
           Just z -> trans (Ldxz z);
           Nothing ->
             if y then Nope else
-              error "must be Located somewhere" -- is this true?
-              -- Nope -- instead just use Nope
+              Nope
 
 loadY :: Arg -> Asm ()
 loadY = \case
@@ -147,8 +146,7 @@ loadY = \case
           Just z -> trans (Ldyz z);
           Nothing ->
             if x then Nope else
-              error "must be Located somewhere" -- is this true?
-              -- Nope -- instead just use Nope
+              Nope
 
 clc :: Asm ()
 clc = Emit Clc noSemantics

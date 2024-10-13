@@ -17,21 +17,13 @@ compile0 exp = do
   -- TODO: end up moving result to a specific location, probably A,
   -- as a first step to supporting calling conventions.
 
-havePreviousCompilation :: Exp -> Asm Bool
-havePreviousCompilation exp = do
-  state <- GetSemState
-  -- TODO share/unify with "locations" / "Located" code
-  let located = [ () | (_,exps) <- Map.toList state, exp `elem` exps ]
-  if not (null located) then pure True else pure False
-
-compile,compileU :: Exp -> Asm ()
+compile :: Exp -> Asm ()
 compile exp = do
   havePreviousCompilation exp >>= \case
     True -> pure ()
     False -> compileU exp
 
--- TODO: pass an Env to deal with user let bindings
-
+compileU :: Exp -> Asm ()
 compileU exp@(Exp form) = do
   case form of
     Num{} -> pure ()
@@ -40,10 +32,16 @@ compileU exp@(Exp form) = do
       compile exp1
       arg <- locations exp1
       codegen exp (Op1 op1 arg)
-
     Op2 op2 exp1 exp2 -> do
       compile exp1
       compile exp2
       arg1 <- locations exp1
       arg2 <- locations exp2
       codegen exp (Op2 op2 arg1 arg2)
+
+havePreviousCompilation :: Exp -> Asm Bool
+havePreviousCompilation exp = do
+  state <- GetSemState
+  -- TODO share/unify with "locations" / "Located" code
+  let located = [ () | (_,exps) <- Map.toList state, exp `elem` exps ]
+  if not (null located) then pure True else pure False
