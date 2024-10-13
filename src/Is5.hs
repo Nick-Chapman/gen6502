@@ -136,6 +136,9 @@ runTests = do
 
       , xor (xor (asl x) (asl y)) (xor (asl z) (asl a))
 
+      , add (add (add a x) (add y z)) (add (add x y) (add z a))
+      , xor (xor (xor a x) (xor y z)) (xor (xor x y) (xor z a))
+
       ]
 
   printf "(eval)env = %s\n" (show ee)

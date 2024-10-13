@@ -416,3 +416,15 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 {21/36}: [sta 7,txa,asl a,sta 8,tya,asl a,eor 8,sta 9,lda 1,asl a,asl 7,eor 7,eor 9] --> [A]
 {21/36}: [sta 7,txa,asl a,sta 8,tya,asl a,eor 8,sta 9,asl 1,lda 7,asl a,eor 1,eor 9] --> [A]
 {21/37}: [stx 7,sta 8,asl 7,tya,asl a,eor 7,sta 9,lda 1,asl a,asl 8,eor 8,eor 9] --> [A]
+
+[70]example = (((a + x) + (y + z)) + ((x + y) + (z + a)))
+#results=32
+{35/57}: [stx 7,sta 8,clc,adc 7,sta 9,tya,clc,adc 1,clc,adc 9,sta 10,tya,clc,adc 7,sta 11,lda 1,clc,adc 8,clc,adc 11,clc,adc 10] --> [A]
+{37/60}: [stx 7,sty 8,sta 9,clc,adc 7,sta 10,tya,clc,adc 1,clc,adc 10,sta 11,txa,clc,adc 8,sta 12,lda 1,clc,adc 9,clc,adc 12,clc,adc 11] --> [A]
+{37/60}: [stx 7,sta 8,clc,adc 7,sta 9,tya,clc,adc 1,clc,adc 9,sta 10,tya,clc,adc 7,sta 11,lda 1,clc,adc 8,clc,adc 11,clc,adc 10,sta 12] --> [A,ZP-12]
+
+[71]example = (((a ^ x) ^ (y ^ z)) ^ ((x ^ y) ^ (z ^ a)))
+#results=32
+{28/43}: [stx 7,sta 8,eor 7,sta 9,tya,eor 1,eor 9,sta 10,tya,eor 7,sta 11,lda 1,eor 8,eor 11,eor 10] --> [A]
+{30/46}: [stx 7,sty 8,sta 9,eor 7,sta 10,tya,eor 1,eor 10,sta 11,txa,eor 8,sta 12,lda 1,eor 9,eor 12,eor 11] --> [A]
+{30/46}: [stx 7,sta 8,eor 7,sta 9,tya,eor 1,eor 9,sta 10,tya,eor 7,sta 11,lda 1,eor 8,eor 11,eor 10,sta 12] --> [A,ZP-12]
