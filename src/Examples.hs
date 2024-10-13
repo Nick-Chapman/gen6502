@@ -114,6 +114,10 @@ examples =
   , xor (xor (xor a x) (xor y z)) (xor (xor x y) (xor z a))
 
   , xor (add (num 13) (num 2)) (add (num 1) (num 15))
+
+  , xor (add x y) (add x y) -- syntactic CSE
+  , xor (add x y) (add y x) -- semantic CSE
+
   ]
 
   where

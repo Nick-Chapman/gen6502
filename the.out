@@ -395,3 +395,11 @@
 [99]example = ((13 + 2) ^ (1 + 15))
 #results=96
 {12/17}: [lda #13,clc,adc #2,ldx #15,inx,stx 7,eor 7] --> [A]
+
+[100]example = ((x + y) ^ (x + y))
+#results=12
+{10/16}: [stx 7,tya,clc,adc 7,sta 8,eor 8] --> [A]
+
+[101]example = ((x + y) ^ (y + x))
+#results=24
+{14/23}: [stx 7,tya,clc,adc 7,sta 8,tya,clc,adc 7,eor 8] --> [A]
