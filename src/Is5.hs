@@ -346,12 +346,13 @@ select :: [Gen] -> Gen
 select gs = \e f -> alts [ g e f | g <- gs ]
 
 codegen :: Gen
-codegen = select [ driveA, driveX, driveZ ]
+codegen = select [ driveA, driveX, driveY, driveZ ]
 
 -- TODO driveY
-driveA,driveX,driveZ :: Gen
+driveA,driveX,driveY,driveZ :: Gen
 driveA = maybePostSpillA $ select [doubling,addition,xor]
 driveX = maybePostSpillX $ select [incrementX]
+driveY = maybePostSpillY $ select [incrementY]
 driveZ = select [incrementM]
 
 doubling :: Gen
@@ -402,10 +403,16 @@ eorIntoA e = \case
       Just z -> do comp e (Eorz z)
       Nothing -> Nope
 
-incrementX :: Gen -- TODO Y like X
+incrementX :: Gen
 incrementX = \e -> \case
   Op2 Add arg (Imm 1) -> do loadX arg; comp e Inx
   Op2 Add (Imm 1) arg -> do loadX arg; comp e Inx
+  _ -> Nope
+
+incrementY :: Gen
+incrementY = \e -> \case
+  Op2 Add arg (Imm 1) -> do loadY arg; comp e Iny
+  Op2 Add (Imm 1) arg -> do loadY arg; comp e Iny
   _ -> Nope
 
 incrementM :: Gen
@@ -454,6 +461,20 @@ loadX = \case
               error "must be Located somewhere" -- is this true?
               -- Nope -- instead just use Nope
 
+loadY :: Arg -> Asm ()
+loadY = \case
+  Imm imm -> trans (Ldyi imm)
+  MLoc Located{a,x,y,z} ->
+    -- prefer location: Y,A,Z (not X)
+    if y then pure () else do
+      if a then trans Tay else
+        case z of
+          Just z -> trans (Ldyz z);
+          Nothing ->
+            if x then Nope else
+              error "must be Located somewhere" -- is this true?
+              -- Nope -- instead just use Nope
+
 clc :: Asm ()
 clc = Emit Clc noSemantics
 
@@ -478,6 +499,9 @@ maybePostSpillA g e f = Alt (g e f) (do g e f; spillA)
 
 maybePostSpillX :: Gen -> Gen
 maybePostSpillX g e f = Alt (g e f) (do g e f; spillX)
+
+maybePostSpillY :: Gen -> Gen
+maybePostSpillY g e f = Alt (g e f) (do g e f; spillY)
 
 spillA :: Asm ()
 spillA = do

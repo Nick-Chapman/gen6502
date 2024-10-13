@@ -50,12 +50,15 @@ step ms@MS{m} = do
     Tx i ->
       case i of
         Tax -> up x (get a)
+        Tay -> up y (get a)
         Txa -> up a (get x)
         Tya -> up a (get y)
         Ldai (Immediate b) -> up a b
         Ldxi (Immediate b) -> up x b
+        Ldyi (Immediate b) -> up y b
         Ldaz z -> up a (get (ZP z))
         Ldxz z -> up x (get (ZP z))
+        Ldyz z -> up y (get (ZP z))
         Sta z -> up (ZP z) (get a)
         Stx z -> up (ZP z) (get x)
         Sty z -> up (ZP z) (get y)
@@ -66,5 +69,6 @@ step ms@MS{m} = do
         Eori (Immediate b) -> up a (get a `xor` b)
         Eorz z -> up a (get a `xor` get (ZP z))
         Inx -> up x (get x + 1)
+        Iny -> up y (get y + 1)
         Incz z -> up (ZP z) (get (ZP z) + 1)
         Asla -> up a (2 * get a)

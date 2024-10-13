@@ -22,9 +22,10 @@ data Instruction = Tx ITransfer | Comp ICompute | Clc
   deriving Eq
 
 data ITransfer
-  = Tax | Txa | Tya
+  = Tax | Tay | Txa | Tya
   | Ldai Immediate | Ldaz ZeroPage
   | Ldxi Immediate | Ldxz ZeroPage
+  | Ldyi Immediate | Ldyz ZeroPage
   | Sta ZeroPage
   | Stx ZeroPage
   | Sty ZeroPage
@@ -35,7 +36,7 @@ data ICompute
   | Adci Immediate
   | Eorz ZeroPage
   | Eori Immediate
-  | Inx
+  | Inx | Iny
   | Incz ZeroPage
   | Asla
   deriving Eq
@@ -46,12 +47,15 @@ data ICompute
 transferSemantics :: ITransfer -> Semantics
 transferSemantics = \case
   Tax -> transfer RegA RegX
+  Tay -> transfer RegA RegY
   Txa -> transfer RegX RegA
   Tya -> transfer RegY RegA
   Ldai (Immediate b) -> overwrite (Exp (Num b)) RegA
   Ldxi (Immediate b) -> overwrite (Exp (Num b)) RegX
+  Ldyi (Immediate b) -> overwrite (Exp (Num b)) RegY
   Ldaz z -> transfer (ZP z) RegA
   Ldxz z -> transfer (ZP z) RegX
+  Ldyz z -> transfer (ZP z) RegY
   Sta z -> transfer RegA (ZP z)
   Stx z -> transfer RegX (ZP z)
   Sty z -> transfer RegY (ZP z)
@@ -63,6 +67,7 @@ computeSemantics e = \case
   Eori{} -> overwrite e RegA
   Eorz{} -> overwrite e RegA
   Inx -> overwrite e RegX
+  Iny -> overwrite e RegY
   Incz z -> overwrite e (ZP z)
   Asla -> overwrite e RegA
 
@@ -110,6 +115,7 @@ instance Show Instruction where
 instance Show ITransfer where
   show = \case
     Tax -> "tax"
+    Tay -> "tay"
     Txa -> "txa"
     Tya -> "tya"
     -- TODO: show one-arg print code
@@ -117,6 +123,8 @@ instance Show ITransfer where
     Ldaz z -> printf "lda %s" (show z)
     Ldxi v -> printf "ldx %s" (show v)
     Ldxz z -> printf "ldx %s" (show z)
+    Ldyi v -> printf "ldy %s" (show v)
+    Ldyz z -> printf "ldy %s" (show z)
     Sta z -> printf "sta %s" (show z)
     Stx z -> printf "stx %s" (show z)
     Sty z -> printf "sty %s" (show z)
@@ -128,6 +136,7 @@ instance Show ICompute where
     Eori v -> printf "eor %s" (show v)
     Eorz z -> printf "eor %s" (show z)
     Inx -> "inx"
+    Iny -> "iny"
     Incz z -> printf "inc %s" (show z)
     Asla -> "asl a"
 

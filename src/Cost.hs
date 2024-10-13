@@ -33,12 +33,15 @@ space_time = \case
   Tx i ->
     case i of
       Tax -> (1,2)
+      Tay -> (1,2)
       Txa -> (1,2)
       Tya -> (1,2)
       Ldai{} -> (2,2)
       Ldxi{} -> (2,2)
+      Ldyi{} -> (2,2)
       Ldaz{} -> (2,3)
       Ldxz{} -> (2,3)
+      Ldyz{} -> (2,3)
       Sta{} -> (2,3)
       Stx{} -> (2,3)
       Sty{} -> (2,3)
@@ -49,5 +52,6 @@ space_time = \case
       Eori{} -> (2,3)
       Eorz{} -> (2,3)
       Inx -> (1,2)
+      Iny -> (1,2)
       Incz{} -> (2,5)
       Asla -> (1,2)
