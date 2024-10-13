@@ -1,7 +1,5 @@
 module Codegen
-  ( Arg(..)
-  , preamble, codegen, locations
-  , somewhere
+  ( preamble, codegen, locations, assign, Reg
   ) where
 
 import Asm (Asm(..))
@@ -57,6 +55,28 @@ select gs = \e f -> alternatives [ g e f | g <- gs ]
 
 conclude :: Gen -> Asm () -> Gen
 conclude gen afterwards = \e f -> do gen e f; afterwards
+
+----------------------------------------------------------------------
+-- assign a specific register (for calling conventions)
+
+assign :: Reg -> Arg -> Asm ()
+assign = \case
+  RegA -> loadA
+  RegX -> loadX
+  RegY -> loadY
+  ZP z -> store z
+
+store :: ZeroPage -> Arg -> Asm ()
+store target = \case
+  Imm imm -> do trans (Ldai imm); trans (Sta target)
+  Loc Located{a,x,y,z} ->
+    if a then trans (Sta target) else do
+      if x then trans (Stx target) else do
+        if y then trans (Sty target) else do
+          case z of
+            -- TODO: optimmize if z and target are the same?
+            Just z -> do trans (Ldaz z); trans (Sta target)
+            Nothing -> undefined -- no example trigger this yet. Nope should do
 
 ----------------------------------------------------------------------
 -- instruction selection
@@ -254,15 +274,6 @@ classifyRegs xs = do
       RegY -> acc { y = True }
       ZP z -> acc { z = Just z }
   foldl f nowhere xs
-
-somewhere :: Located -> Maybe Reg
-somewhere Located{a,x,y,z} = do
-  if a then Just RegA else
-    if x then Just RegX else
-      if y then Just RegY else
-        case z of
-          Just z -> Just (ZP z)
-          Nothing -> Nothing
 
 everywhere :: Located -> [Reg]
 everywhere Located{a,x,y,z} = do

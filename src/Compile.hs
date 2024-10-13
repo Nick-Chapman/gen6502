@@ -1,19 +1,18 @@
 module Compile
-  ( compile0
+  ( compileTarget
   ) where
 
 import Asm (Asm(..))
-import Codegen (Arg(..),preamble,codegen,locations)
+import Codegen (preamble,codegen,locations,assign,Reg)
 import Language (Exp(..),Form(..))
 import qualified Data.Map as Map
 
-compile0 :: Exp -> Asm Arg
-compile0 exp = do
+compileTarget :: Exp -> Reg -> Asm ()
+compileTarget exp reg = do
   preamble
   compile exp
-  locations exp
-  -- TODO: end up moving result to a specific location, probably A,
-  -- as a first step to supporting calling conventions.
+  arg <- locations exp
+  Codegen.assign reg arg
 
 compile :: Exp -> Asm ()
 compile exp = do
@@ -39,7 +38,7 @@ compileU exp@(Exp form) = do
 
 havePreviousCompilation :: Exp -> Asm Bool
 havePreviousCompilation exp = do
-  state <- GetSemState
   -- TODO share/unify with "locations" / "Located" code
+  state <- GetSemState -- TODO: should not use this. It is a cogen concept
   let located = [ () | (_,exps) <- Map.toList state, exp `elem` exps ]
   if not (null located) then pure True else pure False

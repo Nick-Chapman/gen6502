@@ -5,7 +5,7 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 
 [1]example = 77
 #results=8
-{0/0}: [] --> #77
+{2/2}: [lda #77] --> [A]
 
 [2]example = a
 #results=8
@@ -13,49 +13,47 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 
 [3]example = x
 #results=8
-{0/0}: [] --> [X]
+{1/2}: [txa] --> [A]
 
 [4]example = y
 #results=8
-{0/0}: [] --> [Y]
+{1/2}: [tya] --> [A]
 
 [5]example = z
 #results=8
-{0/0}: [] --> [ZP-1]
+{2/3}: [lda 1] --> [A]
 
 [6]example = (a + 1)
 #results=52
-{2/4}: [tax,inx] --> [X]
-{2/4}: [tay,iny] --> [Y]
+{3/5}: [clc,adc #1] --> [A]
 
 [7]example = (x + 1)
 #results=44
-{1/2}: [inx] --> [X]
+{2/4}: [inx,txa] --> [A]
 
 [8]example = (y + 1)
 #results=44
-{1/2}: [iny] --> [Y]
+{2/4}: [iny,tya] --> [A]
 
 [9]example = (z + 1)
 #results=56
-{2/5}: [inc 1] --> [ZP-1]
+{4/7}: [ldx 1,inx,txa] --> [A]
 
 [10]example = (1 + a)
 #results=52
-{2/4}: [tax,inx] --> [X]
-{2/4}: [tay,iny] --> [Y]
+{3/5}: [clc,adc #1] --> [A]
 
 [11]example = (1 + x)
 #results=44
-{1/2}: [inx] --> [X]
+{2/4}: [inx,txa] --> [A]
 
 [12]example = (1 + y)
 #results=44
-{1/2}: [iny] --> [Y]
+{2/4}: [iny,tya] --> [A]
 
 [13]example = (1 + z)
 #results=56
-{2/5}: [inc 1] --> [ZP-1]
+{4/7}: [ldx 1,inx,txa] --> [A]
 
 [14]example = (a + 2)
 #results=16
@@ -116,7 +114,6 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 [28]example = (x + y)
 #results=12
 {6/10}: [stx 7,tya,clc,adc 7] --> [A]
-{6/10}: [sty 7,txa,clc,adc 7] --> [A]
 
 [29]example = (x + z)
 #results=16
@@ -129,7 +126,6 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 [31]example = (y + x)
 #results=12
 {6/10}: [stx 7,tya,clc,adc 7] --> [A]
-{6/10}: [sty 7,txa,clc,adc 7] --> [A]
 
 [32]example = (y + y)
 #results=8
@@ -165,13 +161,11 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 
 [40]example = (14 + 1)
 #results=48
-{3/4}: [ldx #14,inx] --> [X]
-{3/4}: [ldy #14,iny] --> [Y]
+{4/6}: [ldx #14,inx,txa] --> [A]
 
 [41]example = (1 + 14)
 #results=48
-{3/4}: [ldx #14,inx] --> [X]
-{3/4}: [ldy #14,iny] --> [Y]
+{4/6}: [ldx #14,inx,txa] --> [A]
 
 [42]example = (a - 1)
 #results=16
@@ -335,7 +329,7 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 
 [82]example = (z << 1)
 #results=24
-{2/5}: [asl 1] --> [ZP-1]
+{3/5}: [lda 1,asl a] --> [A]
 
 [83]example = ((a << 1) + a)
 #results=24
@@ -392,7 +386,6 @@ ms0 = MS {m = fromList [(A,13),(X,42),(Y,101),(ZP-1,19),(ZP-2,28)]}
 [96]example = (((x << 1) ^ (y << 1)) ^ ((z << 1) ^ (a << 1)))
 #results=476
 {21/36}: [sta 7,txa,asl a,sta 8,tya,asl a,eor 8,sta 9,lda 1,asl a,asl 7,eor 7,eor 9] --> [A]
-{21/36}: [sta 7,txa,asl a,sta 8,tya,asl a,eor 8,sta 9,asl 1,lda 7,asl a,eor 1,eor 9] --> [A]
 
 [97]example = (((a + x) + (y + z)) + ((x + y) + (z + a)))
 #results=32

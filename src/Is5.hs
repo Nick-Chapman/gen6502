@@ -1,13 +1,13 @@
 module Is5 (main) where
 
 import Asm (runAsm,Temps(..))
-import Codegen (Arg(..),somewhere)
-import Compile (compile0)
+import Compile (compileTarget)
 import Control.Monad (when)
 import Emulate (Env,MachineState,initMS,emulate)
-import Instruction (Reg(..),ZeroPage(..),Immediate(..),SemState)
+import Instruction (Code,Reg(..),ZeroPage(..),SemState)
 import Language (Exp(..),Form(..),Op1(..),Op2(..),EvalEnv,eval)
 import Text.Printf (printf)
+import Cost (Cost)
 import qualified Cost
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -167,28 +167,36 @@ runTests = do
   let ms0 :: MachineState = initMS env ee
   printf "ms0 = %s\n" (show ms0)
 
-  let ss = semStateOfEnv env
-  mapM_ (run1 ss ee ms0) (last (1000) (zip [1::Int ..] examples))
+  mapM_ (run1 env ee ms0) (last (1000) (zip [1::Int ..] examples))
     where last n xs = reverse (take n (reverse xs))
 
 semStateOfEnv :: Env -> SemState
 semStateOfEnv env = Map.fromList [ (loc,[Exp (Var x)]) | (x,loc) <- Map.toList env ]
 
 
-run1 :: SemState -> EvalEnv -> MachineState -> (Int,Exp) -> IO ()
-run1 state ee ms0 (i,example) = do
+generate :: Env -> Exp -> Reg -> IO [(Cost,Code)]
+generate env exp target = do
+  let ss = semStateOfEnv env
+  let temps1 = Temps [ZeroPage n | n <- [7..19]]
+  xs <- runAsm Cost.lessTime temps1 ss (compileTarget exp target)
+  pure [ (cost,code) | (code,cost,()) <- xs ]
+
+
+run1 :: Env -> EvalEnv -> MachineState -> (Int,Exp) -> IO ()
+run1 env ee ms0 (i,example) = do
   printf "\n[%d]example = %s\n" i (show example)
   let eres = eval ee example
-  let temps1 = Temps [ZeroPage n | n <- [7..19]]
-  rs <- runAsm Cost.lessTime temps1 state (compile0 example)
-  let _num = length rs
-  if _num == 0 then error "#results==0" else pure ()
+
+  let target = RegA
+  rs <- generate env example target
+
+  if length rs == 0 then error "#results==0" else pure ()
 
   let
-    prRes ((code,cost,arg),mres) = do
+    prRes ((cost,code),mres) = do
       let same = (mres == eres)
       let ok :: String = if same then "" else printf " {FAIL: different: %d}" mres
-      printf "{%s}: %s --> %s%s\n" (show cost) (show code) (show arg) ok
+      printf "{%s}: %s --> [%s]%s\n" (show cost) (show code) (show target) ok
 
   let n1 = length rs
   printf "#results=%d\n" n1
@@ -199,15 +207,7 @@ run1 state ee ms0 (i,example) = do
     printf "#results=%d #NUB=%d\n" n1 n2
     error "*NUB*"
 
-  let
-    a_emulate code = \case
-      Imm (Immediate b) -> b
-      Loc located ->
-        case somewhere located of
-          Just loc -> emulate ms0 code loc
-          Nothing -> error "no final location"
-
-  let rsWithEmu = [ (r, a_emulate code final) | r@(code,_,final) <- rsNubbed ]
+  let rsWithEmu = [ (r, emulate ms0 code target) | r@(_,code) <- rsNubbed ]
   let (ok,bad) = List.partition correct rsWithEmu
         where correct (_,mres) = (mres==eres)
 
@@ -219,6 +219,6 @@ run1 state ee ms0 (i,example) = do
     mapM_ prRes bad
     error "*BAD*"
 
-  let ((_,lowestCost,_),_) = head ok -- must be at least one ok
-  let best = takeWhile (\((_,cost,_),_) -> cost == lowestCost) ok
+  let ((_,lowestCost),_) = head ok -- must be at least one ok
+  let best = takeWhile (\((_,cost),_) -> cost == lowestCost) ok
   mapM_ prRes best
