@@ -3,7 +3,7 @@ module Is5 (main) where
 import Asm (Asm(..),runAsm,Temps(..))
 import Control.Monad (when)
 import Emulate (Env,MachineState,initMS,emulate)
-import Instruction (Instruction(..),ITransfer(..),ICompute(..),Arg(..),Loc(..),ZeroPage(..),Immediate(..),SemState,noSemantics,transferSemantics,computeSemantics)
+import Instruction (Instruction(..),ITransfer(..),ICompute(..),Loc(..),ZeroPage(..),Immediate(..),SemState,noSemantics,transferSemantics,computeSemantics)
 import Language (Exp(..),Form(..),Op1(..),Op2(..),EvalEnv,eval)
 import Text.Printf (printf)
 import Util (extend)
@@ -15,6 +15,7 @@ import qualified Data.List as List
 
 main :: IO ()
 main = do
+  let _ = (spillX,spillY,spillA,perhaps)
   print "*Is4*"
   runTests
 
@@ -105,21 +106,27 @@ runTests = do
       , add (add (var a) (num 1)) (add (var a) (num 1))
       , add (add (num 17) (num 19)) (add (num 17) (num 19))
 
+      , xor (var a) (asl (var a))
+      , xor (var a) (asl (asl (var a)))
+
+      , xor (add (var a) (num 1)) (add (var a) (num 1))
+      , xor (add (var x) (num 1)) (add (var x) (num 1))
+      , xor (add (var y) (num 1)) (add (var y) (num 1))
+      , xor (add (var z) (num 1)) (add (var z) (num 1))
+
+      , xor (xor (var a) (asl (var a))) (asl (asl (var a)))
+
+
       , let_ "t1" (var a) (var "t1")
       , let_ "t1" (var x) (var "t1")
       , let_ "t1" (var y) (var "t1")
       , let_ "t1" (var z) (var "t1")
-
       , let_ "t1" (var a) (add (var "t1") (var "t1"))
       , let_ "t1" (var x) (add (var "t1") (var "t1"))
       , let_ "t1" (var y) (add (var "t1") (var "t1"))
       , let_ "t1" (var z) (add (var "t1") (var "t1"))
-
       , let_ "t1" (asl (add (num 1) (var z))) (add (var z2) (var "t1"))
 
-      , xor (var a) (asl (var a))
-      , xor (var a) (asl (asl (var a)))
---      , xor (xor (var a) (asl (var a))) (asl (asl (var a))) -- TODO: spill needed
       ]
 
   printf "(eval)env = %s\n" (show ee)
@@ -127,7 +134,7 @@ runTests = do
   printf "ms0 = %s\n" (show ms0)
 
   let ss = semStateOfEnv env
-  mapM_ (run1 ss ee ms0) (last 1000 (zip [1::Int ..] examples))
+  mapM_ (run1 ss ee ms0) (last (1000) (zip [1::Int ..] examples))
     where last n xs = reverse (take n (reverse xs))
 
 semStateOfEnv :: Env -> SemState
@@ -149,41 +156,60 @@ run1 state ee ms0 (i,example) = do
       let ok :: String = if same then "" else printf " {FAIL: different: %d}" mres
       printf "{%s}: %s --> %s%s\n" (show cost) (show code) (show arg) ok
 
-  let rsWithEmu = [ (r, emulate ms0 (code,arg)) | r@(code,_,arg) <- rs ]
-  let (ok,bad) = List.partition correct rsWithEmu
-        where correct (_,mres) = (mres==eres)
-
-  when (length bad > 0) $ do
-    printf "eval -> %d\n" eres
-
   let n1 = length rs
   printf "#results=%d\n" n1
-  let n2 = length (List.nub rs)
+  let rsNubbed = List.nub rs
+  let n2 = length rsNubbed
   when (n1 /= n2) $ do
     --mapM_ prRes ok
     printf "#results=%d #NUB=%d\n" n1 n2
-    --error "*NUB*" -- TODO: would be nice to enable this
+    error "*NUB*"
+
+  let
+    a_emulate code = \case
+      Imm (Immediate b) -> b
+      MLoc located ->
+        case somewhere located of
+          Just loc -> emulate ms0 code loc
+          Nothing -> error "no final location"
+
+  let rsWithEmu = [ (r, a_emulate code final) | r@(code,_,final) <- rsNubbed ]
+  let (ok,bad) = List.partition correct rsWithEmu
+        where correct (_,mres) = (mres==eres)
 
   let n = 3
   mapM_ prRes (take n ok)
+
+  when (length bad > 0) $ do
+    printf "eval -> %d\n" eres
 
   when (length bad > 0) $ do
     printf "#bad=%d\n" (length bad)
     mapM_ prRes bad
     error "*BAD*"
 
-
 compile0 :: Exp -> Asm Arg
 compile0 exp = do
-  -- TODO: avoid splill if not in free vars ?
-  perhaps spillA
   perhaps spillX
   perhaps spillY
+  perhaps spillA
   compile exp
   locations exp
 
-compile :: Exp -> Asm ()
-compile exp@(Exp form) = do
+havePreviousCompilation :: Exp -> Asm Bool
+havePreviousCompilation exp = do
+  state <- GetSemState
+  let located = [ () | (_,exps) <- Map.toList state, exp `elem` exps ]
+  if not (null located) then pure True else pure False
+
+
+compile,compileU :: Exp -> Asm ()
+compile exp = do
+  havePreviousCompilation exp >>= \case
+    True -> pure ()
+    False -> compileU exp
+
+compileU exp@(Exp form) = do
   case form of
     Num{} -> pure ()
     Var{} -> pure ()
@@ -199,6 +225,9 @@ compile exp@(Exp form) = do
       arg2 <- locations exp2
       codegen exp (Op2 op2 arg1 arg2)
 
+    -- TODO redo Let exps to pay no attention to user vars,
+    -- and just recompile the exp every tume
+    -- but finding the previous compilation anyway
     Let x rhs body -> do
       compile rhs
       -- TODO: dont do linkage with non-determinism (alts)
@@ -214,7 +243,8 @@ compile exp@(Exp form) = do
 linkE :: Exp -> Arg -> Asm ()
 linkE e = \case
   Imm{} -> pure()
-  Loc loc -> do
+  MLoc located -> do
+    loc <- alts"" [ pure loc | loc <- (everywhere located) ] -- short term hack
     updateSemState (linkExp e loc)
 
 -- TODO : Have Asm primitive to link Var(Exp) to a Location. Avoid need for {Get,Set}SemanticState
@@ -228,28 +258,72 @@ updateSemState f = do
   ss <- GetSemState
   SetSemState (f ss)
 
-locations :: Exp -> Asm Arg -- TODO: annoying this returns Arg not Loc !!
-locations exp = do
-  state <- GetSemState
-  let located = locateE state exp
-  locationsL exp located
 
-locationsL :: Exp -> Located -> Asm Arg
-locationsL whoExp located = do
-  let tag = printf "%s--locations" (show whoExp)
-  let xs = argsL located
-  alts tag [ pure arg | arg <- xs ]
 
-data Located = LocatedList [Arg]
+data Arg = Imm Immediate | MLoc Located deriving (Eq)
 
-argsL :: Located -> [Arg]
-argsL (LocatedList xs) = xs
+instance Show Arg where
+  show = \case
+    Imm imm -> show imm
+    MLoc located  -> show located
 
-locateE :: SemState -> Exp -> Located
-locateE state exp =
-  LocatedList
-  ((case exp of Exp (Num b) -> [Imm (Immediate b)]; _ -> []) -- TODO: surprise we need this
-   ++ [ Loc loc | (loc,exps) <- Map.toList state, exp `elem` exps ])
+
+----------------------------------------------------------------------
+-- Located
+
+data Located = Located { a,x,y::Bool,z::Maybe ZeroPage } deriving (Eq)
+
+instance Show Located where
+  show located = show (everywhere located)
+
+everywhere :: Located -> [Loc]
+everywhere Located{a,x,y,z} = do
+  concat
+    [ if a then [RegA] else []
+    , if x then [RegX] else []
+    , if y then [RegY] else []
+    , case z of Just z -> [ZP z]; Nothing -> []
+    ]
+
+somewhere :: Located -> Maybe Loc
+somewhere Located{a,x,y,z} = do
+  if a then Just RegA else
+    if x then Just RegX else
+      if y then Just RegY else
+        case z of
+          Just z -> Just (ZP z)
+          Nothing -> Nothing
+
+classifyLocs :: [Loc] -> Located
+classifyLocs xs = do
+  let nowhere = Located { a = False, x = False, y = False, z = Nothing }
+  let
+    f acc = \case
+      RegA -> acc { a = True }
+      RegX -> acc { x = True }
+      RegY -> acc { y = True }
+      ZP z -> acc { z = Just z }
+  foldl f nowhere xs
+
+inAcc :: Arg -> Bool
+inAcc = \case
+  Imm{} -> False
+  MLoc Located{a} -> a
+
+canOp :: Arg -> Bool
+canOp = \case
+  Imm _ -> True
+  MLoc Located{z=Just{}} -> True
+  MLoc{} -> False
+
+
+locations :: Exp -> Asm Arg
+locations = \case
+  Exp (Num b) -> pure (Imm (Immediate b))
+  exp -> do
+    state <- GetSemState
+    let xs = [ loc | (loc,exps) <- Map.toList state, exp `elem` exps ]
+    pure (MLoc (classifyLocs xs))
 
 -- TODO remove tag debugging for Alt/Nope
 alts :: String -> [Asm a] -> Asm a
@@ -257,6 +331,7 @@ alts tag xs = do
   let n = length xs
   foldl (\a (i,b) -> Alt (printf "%s[%d/%d]" tag i n) a b
         ) (Nope tag) (zip [1::Int ..] xs)
+-- TODO: optimize to avoid pointless final Alt/Nope
 
 ----------------------------------------------------------------------
 -- instruction selection
@@ -267,48 +342,71 @@ select :: [Gen] -> Gen
 select gs = \e f -> alts "select" [ g e f | g <- gs ]
 
 codegen :: Gen
-codegen = select [doubling,addition,xor,incrementX,incrementM]
+codegen = select [ driveA, driveX, driveZ ]
+
+-- TODO driveY
+driveA,driveX,driveZ :: Gen
+driveA = maybePostSpillA $ select [doubling,addition,xor]
+driveX = maybePostSpillX $ select [incrementX]
+driveZ = select [incrementM]
+
+maybePostSpillA :: Gen -> Gen
+maybePostSpillA g e f = Alt "maybePostSpillA" (g e f) (do g e f; spillA)
+
+maybePostSpillX :: Gen -> Gen
+maybePostSpillX g e f = Alt "maybePostSpillX" (g e f) (do g e f; spillX)
+
 
 doubling :: Gen
-doubling e = \case
+doubling = \e ->  \case
   Op1 Asl arg -> do loadA arg; comp e Asla
   _ -> Nope"doubling"
 
--- TODO: perhaps spillA after each codegen
-
 addition :: Gen
-addition e = \case
-  Op2 Add (Loc RegA) arg -> do addIntoA e arg
-  Op2 Add arg (Loc RegA) -> do addIntoA e arg
-  Op2 Add arg1 arg2 -> do loadA arg1; addIntoA e arg2
-  _ -> Nope"addition"
+addition = \e -> \case
+  Op2 Add arg1 arg2 ->
+    if inAcc arg1 && inAcc arg2
+    then comp e (Asla)
+    else
+      if inAcc arg1 then addIntoA e arg2 else
+        if inAcc arg2 then addIntoA e arg1 else
+          if canOp arg2
+          then do loadA arg1; addIntoA e arg2
+          else do loadA arg2; addIntoA e arg1 -- swap
+  _ ->
+    Nope"addition"
 
 addIntoA :: Exp -> Arg -> Asm ()
 addIntoA e = \case
   Imm imm -> do clc; comp e (Adci imm)
-  Loc RegA -> comp e (Asla)
-  Loc RegX -> Nope"addinto1"
-  Loc RegY -> Nope"addinto2"
-  Loc (ZP z) -> do clc; comp e  (Adcz z)
+  MLoc Located{z} ->
+    -- only location: Z (not A,X,Y)
+    case z of
+      Just z -> do clc; comp e (Adcz z)
+      Nothing -> Nope""
 
 xor :: Gen
-xor e = \case
-  Op2 Xor (Loc RegA) _arg -> do eorIntoA e _arg
-  Op2 Xor _arg (Loc RegA) -> do eorIntoA e _arg
-  Op2 Xor arg1 arg2 -> do loadA arg1; eorIntoA e arg2
-  _ -> Nope"xor"
+xor = \e -> \case
+  Op2 Xor arg1 arg2 ->
+    if inAcc arg1 then eorIntoA e arg2 else
+      if inAcc arg2 then eorIntoA e arg1 else
+        if canOp arg2
+        then do loadA arg1; eorIntoA e arg2
+        else do loadA arg2; eorIntoA e arg1 -- swap
+  _ ->
+    Nope"xor"
 
 eorIntoA :: Exp -> Arg -> Asm ()
 eorIntoA e = \case
   Imm imm -> do comp e (Eori imm)
-  Loc RegA -> Nope"eorIntoA1" -- or assign fixed bit pattern
-  Loc RegX -> Nope"eorIntoA2"
-  Loc RegY -> Nope"eorIntoA3"
-  Loc (ZP z) -> do comp e (Eorz z)
-
+  MLoc Located{z} ->
+    -- only location: Z (not A,X,Y)
+    case z of
+      Just z -> do comp e (Eorz z)
+      Nothing -> Nope""
 
 incrementX :: Gen -- TODO Y like X
-incrementX e = \case
+incrementX = \e -> \case
   Op2 Add arg (Imm 1) -> do loadX arg; comp e Inx
   Op2 Add (Imm 1) arg -> do loadX arg; comp e Inx
   _ -> Nope"incrementX"
@@ -321,8 +419,12 @@ incrementM e = \case
 
 inZP :: Arg -> Asm ZeroPage
 inZP = \case
-  Loc (ZP z) -> pure z
-  _ -> Nope"inZP"
+  Imm{} -> Nope""
+  MLoc Located{z} ->
+    case z of
+      Just z -> pure z
+      Nothing -> Nope""
+
 
 -- TODO: compile time constant folding
 
@@ -332,18 +434,30 @@ inZP = \case
 loadA :: Arg -> Asm ()
 loadA = \case
   Imm imm -> trans (Ldai imm)
-  Loc RegA -> pure ()
-  Loc RegX -> trans Txa
-  Loc RegY -> trans Tya
-  Loc (ZP z) -> trans (Ldaz z)
+  MLoc Located{a,x,y,z} ->
+    -- prefer location: A,X,Y,Z
+    if a then pure () else do
+      if x then trans Txa else do
+        if y then trans Tya else do
+          case z of
+            Just z -> trans (Ldaz z);
+            Nothing -> Nope""
+
 
 loadX :: Arg -> Asm ()
 loadX = \case
   Imm imm -> trans (Ldxi imm)
-  Loc RegA -> trans Tax
-  Loc RegX -> pure ()
-  Loc RegY -> Nope"loadX(no Y->X)"
-  Loc (ZP z) -> trans (Ldxz z)
+  MLoc Located{a,x,y,z} ->
+    -- prefer location: X,A,Z (not Y)
+    if x then pure () else do
+      if a then trans Tax else
+        case z of
+          Just z -> trans (Ldxz z);
+          Nothing ->
+            if y then Nope"" else
+              error "must be Located somewhere" -- is this true?
+              -- Nope"" -- instead just use Nope
+
 
 clc :: Asm ()
 clc = Emit Clc noSemantics
@@ -353,6 +467,7 @@ trans i = Emit (Tx i) (transferSemantics i)
 
 comp :: Exp -> ICompute -> Asm ()
 comp e i = Emit (Comp i) (computeSemantics e i)
+
 
 ----------------------------------------------------------------------
 -- spilling...

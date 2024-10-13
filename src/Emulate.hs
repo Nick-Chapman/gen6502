@@ -5,7 +5,7 @@ module Emulate
 import Data.Bits (xor)
 import Data.Map (Map)
 import Data.Word (Word8)
-import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),Immediate(..),Arg(..),Loc(..))
+import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),Immediate(..),Loc(..))
 import Language (Var,EvalEnv)
 import Util (look,extend)
 import qualified Data.Map as Map
@@ -14,9 +14,8 @@ type Byte = Word8
 
 type Env = Map Var Loc
 
-emulate :: MachineState -> (Code,Arg) -> Byte
-emulate _ (_,Imm (Immediate b)) = b
-emulate ms0 (code,Loc locFinal) = steps ms0 code
+emulate :: MachineState -> Code -> Loc -> Byte
+emulate ms0 code locFinal = steps ms0 code
   where
     steps ms = \case
       [] -> get_loc ms locFinal

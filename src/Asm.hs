@@ -6,7 +6,7 @@ import Control.Monad (ap,liftM)
 import Cost(Cost,cost)
 import Data.List (sortBy)
 import Instruction (Code,Instruction,ZeroPage,Semantics,SemState)
---import Text.Printf (printf)
+import Text.Printf (printf)
 import qualified Cost
 
 instance Functor Asm where fmap = liftM
@@ -41,6 +41,7 @@ runAsm costOrdering temps0 ss0 asm0 = do
 
     s0 = State { ss = ss0, temps = temps0 }
 
+    _x :: String = printf ""
     (+) = Cost.add
     zero = Cost.zero
 

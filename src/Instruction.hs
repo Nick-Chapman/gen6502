@@ -2,7 +2,7 @@ module Instruction
   ( Code, Instruction(..), ITransfer(..), ICompute(..)
   , ZeroPage(..), Immediate(..)
   , Semantics, transfer, overwrite, noSemantics, transferSemantics, computeSemantics
-  , SemState, Arg(..), Loc(..)
+  , SemState, Loc(..)
   ) where
 
 import Util (look,extend)
@@ -86,18 +86,10 @@ getS loc s = look "getS" s loc
 type SemState = Map Loc [Exp]
 
 ----------------------------------------------------------------------
--- Arg, Loc
-
--- TODO: move Arg to Is5-CodeGen (once stop its use in Emulation)
-data Arg = Loc Loc | Imm Immediate deriving (Eq)
+-- Loc
 
 data Loc = RegA | RegX | RegY | ZP ZeroPage
   deriving (Eq,Ord)
-
-instance Show Arg where
-  show = \case
-    Imm imm -> show imm
-    Loc loc -> show loc
 
 instance Show Loc where
   show = \case
