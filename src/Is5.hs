@@ -126,6 +126,9 @@ runTests = do
       , let_ "t1" (var z) (add (var "t1") (var "t1"))
       , let_ "t1" (asl (add (num 1) (var z))) (add (var z2) (var "t1"))
 
+      -- , var a
+      -- , var "b" -- should fail because no in env, rather than no final location
+
       ]
 
   printf "(eval)env = %s\n" (show ee)
@@ -194,10 +197,13 @@ compile0 exp = do
   perhaps spillA
   compile exp
   locations exp
+  -- TODO: end up moving result to a specific location, probably A,
+  -- as a first step to supporting calling conventions.
 
 havePreviousCompilation :: Exp -> Asm Bool
 havePreviousCompilation exp = do
   state <- GetSemState
+  -- TODO share/unify with "locations" / "Located" code
   let located = [ () | (_,exps) <- Map.toList state, exp `elem` exps ]
   if not (null located) then pure True else pure False
 
@@ -207,6 +213,9 @@ compile exp = do
   havePreviousCompilation exp >>= \case
     True -> pure ()
     False -> compileU exp
+
+
+-- TODO: pass an Env to deal with user let bindings
 
 compileU exp@(Exp form) = do
   case form of
