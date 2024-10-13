@@ -61,7 +61,7 @@ run1 target env ee (i,example) = do
 
   -- Check we dont have two identical sequences (indicates inefficient codegen).
   let n1 = length rs
-  printf "#results=%d\n" n1
+  --printf "#results=%d\n" n1
   let rsNubbed = List.nub rs
   let n2 = length rsNubbed
   when (n1 /= n2) $ do
