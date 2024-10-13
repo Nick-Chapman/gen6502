@@ -37,104 +37,104 @@ runTests = do
   let asl e = Exp (Op1 Asl e)
   let let_ x e1 e2 = Exp (Let x e1 e2)
 
-  let aa = var a
-  let xx = var x
-  let yy = var y
-  let zz = var z
+  let a = var "a"
+  let x = var "x"
+  let y = var "y"
+  let z = var "z"
+  let z2 = var "z2"
 
   let
     examples =
       [ num 77
 
-      , var a
-      , var x
-      , var y
-      , var z
+      , a
+      , x
+      , y
+      , z
 
-      , add (var a) (num 1)
-      , add (var x) (num 1)
-      , add (var y) (num 1)
-      , add (var z) (num 1)
+      , add a (num 1)
+      , add x (num 1)
+      , add y (num 1)
+      , add z (num 1)
 
-      , add (num 1) (var a)
-      , add (num 1) (var x)
-      , add (num 1) (var y)
-      , add (num 1) (var z)
+      , add (num 1) a
+      , add (num 1) x
+      , add (num 1) y
+      , add (num 1) z
 
-      , add (var a) (num 2)
-      , add (var x) (num 2)
-      , add (var y) (num 2)
-      , add (var z) (num 2)
+      , add a (num 2)
+      , add x (num 2)
+      , add y (num 2)
+      , add z (num 2)
 
-      , add (num 3) (var a)
-      , add (num 3) (var x)
-      , add (num 3) (var y)
-      , add (num 3) (var z)
+      , add (num 3) a
+      , add (num 3) x
+      , add (num 3) y
+      , add (num 3) z
 
-      , add (var a) (var a)
-      , add (var a) (var x)
-      , add (var a) (var y)
-      , add (var a) (var z)
+      , add a a
+      , add a x
+      , add a y
+      , add a z
 
-      , add (var x) (var a)
-      , add (var x) (var x)
-      , add (var x) (var y)
-      , add (var x) (var z)
+      , add x a
+      , add x x
+      , add x y
+      , add x z
 
-      , add (var y) (var a)
-      , add (var y) (var x)
-      , add (var y) (var y)
-      , add (var y) (var z)
+      , add y a
+      , add y x
+      , add y y
+      , add y z
 
-      , add (var z) (var a)
-      , add (var z) (var x)
-      , add (var z) (var y)
-      , add (var z) (var z)
+      , add z a
+      , add z x
+      , add z y
+      , add z z
 
-      , add (var z) (var z2)
+      , add z z2
       , add (num 17) (num 19)
       , add (num 14) (num 1)
       , add (num 1) (num 14)
 
       , asl (num 14)
-      , asl (var a)
-      , asl (var x)
-      , asl (var y)
-      , asl (var z)
+      , asl a
+      , asl x
+      , asl y
+      , asl z
 
-      , add (asl (var a)) (var a)
-      , add (asl (var x)) (var x)
-      , add (asl (var y)) (var y)
-      , add (asl (var z)) (var z)
+      , add (asl a) a
+      , add (asl x) x
+      , add (asl y) y
+      , add (asl z) z
 
-      , add (add (var a) (num 1)) (add (var a) (num 1))
+      , add (add a (num 1)) (add a (num 1))
       , add (add (num 17) (num 19)) (add (num 17) (num 19))
 
-      , xor (var a) (asl (var a))
-      , xor (var a) (asl (asl (var a)))
+      , xor a (asl a)
+      , xor a (asl (asl a))
 
-      , xor (add (var a) (num 1)) (add (var a) (num 1))
-      , xor (add (var x) (num 1)) (add (var x) (num 1))
-      , xor (add (var y) (num 1)) (add (var y) (num 1))
-      , xor (add (var z) (num 1)) (add (var z) (num 1))
+      , xor (add a (num 1)) (add a (num 1))
+      , xor (add x (num 1)) (add x (num 1))
+      , xor (add y (num 1)) (add y (num 1))
+      , xor (add z (num 1)) (add z (num 1))
 
-      , xor (xor (var a) (asl (var a))) (asl (asl (var a)))
+      , xor (xor a (asl a)) (asl (asl a))
 
 
-      , let_ "t1" (var a) (var "t1")
-      , let_ "t1" (var x) (var "t1")
-      , let_ "t1" (var y) (var "t1")
-      , let_ "t1" (var z) (var "t1")
-      , let_ "t1" (var a) (add (var "t1") (var "t1"))
-      , let_ "t1" (var x) (add (var "t1") (var "t1"))
-      , let_ "t1" (var y) (add (var "t1") (var "t1"))
-      , let_ "t1" (var z) (add (var "t1") (var "t1"))
-      , let_ "t1" (asl (add (num 1) (var z))) (add (var z2) (var "t1"))
+      , let_ "t1" a (var "t1")
+      , let_ "t1" x (var "t1")
+      , let_ "t1" y (var "t1")
+      , let_ "t1" z (var "t1")
+      , let_ "t1" a (add (var "t1") (var "t1"))
+      , let_ "t1" x (add (var "t1") (var "t1"))
+      , let_ "t1" y (add (var "t1") (var "t1"))
+      , let_ "t1" z (add (var "t1") (var "t1"))
+      , let_ "t1" (asl (add (num 1) z)) (add z2 (var "t1"))
 
-      -- , var a
       -- , var "b" -- should fail because no in env, rather than no final location
 
-      , xor (xor (asl xx) (asl yy)) (xor (asl zz) (asl aa))
+      , xor (xor (asl x) (asl y)) (xor (asl z) (asl a))
 
       ]
 
