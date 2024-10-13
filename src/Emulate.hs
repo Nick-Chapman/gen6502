@@ -72,3 +72,4 @@ step ms@MS{m} = do
         Iny -> up y (get y + 1)
         Incz z -> up (ZP z) (get (ZP z) + 1)
         Asla -> up a (2 * get a)
+        Aslz z -> up (ZP z) (2 * get (ZP z))

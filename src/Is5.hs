@@ -37,6 +37,11 @@ runTests = do
   let asl e = Exp (Op1 Asl e)
   let let_ x e1 e2 = Exp (Let x e1 e2)
 
+  let aa = var a
+  let xx = var x
+  let yy = var y
+  let zz = var z
+
   let
     examples =
       [ num 77
@@ -128,6 +133,8 @@ runTests = do
 
       -- , var a
       -- , var "b" -- should fail because no in env, rather than no final location
+
+      , xor (xor (asl xx) (asl yy)) (xor (asl zz) (asl aa))
 
       ]
 
@@ -350,13 +357,13 @@ codegen = select [ driveA, driveX, driveY, driveZ ]
 
 -- TODO driveY
 driveA,driveX,driveY,driveZ :: Gen
-driveA = maybePostSpillA $ select [doubling,addition,xor]
+driveA = maybePostSpillA $ select [doublingA,addition,xor]
 driveX = maybePostSpillX $ select [incrementX]
 driveY = maybePostSpillY $ select [incrementY]
-driveZ = select [incrementM]
+driveZ = select [incrementZ,doublingZ]
 
-doubling :: Gen
-doubling = \e ->  \case
+doublingA :: Gen
+doublingA = \e ->  \case
   Op1 Asl arg -> do loadA arg; comp e Asla
   _ -> Nope
 
@@ -415,10 +422,15 @@ incrementY = \e -> \case
   Op2 Add (Imm 1) arg -> do loadY arg; comp e Iny
   _ -> Nope
 
-incrementM :: Gen
-incrementM e = \case
+incrementZ :: Gen
+incrementZ e = \case
   Op2 Add arg (Imm 1) -> do z <- inZP arg; comp e (Incz z)
   Op2 Add (Imm 1) arg -> do z <- inZP arg; comp e (Incz z)
+  _ -> Nope
+
+doublingZ :: Gen
+doublingZ = \e ->  \case
+  Op1 Asl arg -> do z <- inZP arg; comp e (Aslz z)
   _ -> Nope
 
 inZP :: Arg -> Asm ZeroPage

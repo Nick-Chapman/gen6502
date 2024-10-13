@@ -55,3 +55,4 @@ space_time = \case
       Iny -> (1,2)
       Incz{} -> (2,5)
       Asla -> (1,2)
+      Aslz{} -> (2,5)

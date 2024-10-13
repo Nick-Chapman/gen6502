@@ -39,6 +39,7 @@ data ICompute
   | Inx | Iny
   | Incz ZeroPage
   | Asla
+  | Aslz ZeroPage
   deriving Eq
 
 ----------------------------------------------------------------------
@@ -70,6 +71,7 @@ computeSemantics e = \case
   Iny -> overwrite e RegY
   Incz z -> overwrite e (ZP z)
   Asla -> overwrite e RegA
+  Aslz z -> overwrite e (ZP z)
 
 ----------------------------------------------------------------------
 -- Semantics
@@ -139,6 +141,7 @@ instance Show ICompute where
     Iny -> "iny"
     Incz z -> printf "inc %s" (show z)
     Asla -> "asl a"
+    Aslz z -> printf "asl %s" (show z)
 
 ----------------------------------------------------------------------
 -- ZeroPage & Immediate
