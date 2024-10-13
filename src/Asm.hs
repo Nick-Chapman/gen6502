@@ -5,7 +5,7 @@ module Asm
 import Control.Monad (ap,liftM)
 import Cost(Cost,cost)
 import Data.List (sortBy)
-import Instruction (Code,Instruction,ZeroPage,Semantics,SemState)
+import Instruction (Code,Instruction,ZeroPage,Semantics,SemState,Exp,Reg,findSemState)
 import qualified Cost
 
 instance Functor Asm where fmap = liftM
@@ -17,9 +17,10 @@ data Asm a where
   Bind :: Asm a -> (a -> Asm b) -> Asm b
   Alt :: Asm a -> Asm a -> Asm a
   Nope :: Asm a
-  GetSemState :: Asm SemState
   Fresh :: Asm ZeroPage
   Emit :: Instruction -> Semantics -> Asm ()
+  Holding :: Exp -> Asm [Reg]
+  Print :: String -> Asm ()
 
 type CostOrdering = Cost -> Cost -> Ordering
 
@@ -69,8 +70,9 @@ runAsm costOrdering temps0 ss0 asm0 = do
       Nope -> do
         pure []
 
-      GetSemState -> do
-        pure [([],zero,s,ss)]
+      Holding exp -> do
+        let regs = findSemState ss exp
+        pure [([],zero,s,regs)]
 
       Fresh -> do
         case temps of
@@ -82,6 +84,10 @@ runAsm costOrdering temps0 ss0 asm0 = do
       Emit instruction semantics -> do
         let s' = s { ss = semantics ss }
         pure [ ([instruction], cost instruction, s', ()) ]
+
+      Print mes -> do
+        print mes
+        pure [ ([],zero,s,()) ]
 
 
 data State = State { ss :: SemState, temps :: Temps }

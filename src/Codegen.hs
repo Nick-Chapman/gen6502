@@ -5,7 +5,7 @@ module Codegen
 import Asm (Asm(..))
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),Reg(..),ZeroPage(..),Immediate(..),noSemantics,transferSemantics,computeSemantics)
 import Language (Exp(..),Form(..),Op2(..),Op1(..))
-import qualified Data.Map as Map
+import Text.Printf (printf)
 
 ----------------------------------------------------------------------
 -- Arg
@@ -257,12 +257,16 @@ alternatives = \case
 -- Located
 
 locations :: Exp -> Asm Arg
-locations = \case
-  Exp (Num b) -> pure (Imm (Immediate b))
-  exp -> do
-    state <- GetSemState
-    let xs = [ loc | (loc,exps) <- Map.toList state, exp `elem` exps ]
-    pure (Loc (classifyRegs xs))
+locations exp = do
+  xs <- Holding exp
+  let _ = Print (printf "%s --> %s" (show exp) (show xs))
+  let arg = Loc (classifyRegs xs)
+  case xs of
+    _:_ -> pure arg
+    [] ->
+      case exp of
+        Exp (Num b) -> Alt (pure (Imm (Immediate b))) (pure arg)
+        _ -> Nope
 
 classifyRegs :: [Reg] -> Located
 classifyRegs xs = do

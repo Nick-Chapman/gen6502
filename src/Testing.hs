@@ -6,8 +6,8 @@ import Control.Monad (when)
 import Cost (Cost)
 import Emulate (Env,initMS,emulate)
 import Examples (examples)
-import Instruction (Code,Reg(..),ZeroPage(..))
-import Language (Exp(..),Form(..),EvalEnv,eval)
+import Instruction (Code,Reg(..),ZeroPage(..),makeSemState)
+import Language (Exp(..),Form(Var),EvalEnv,eval)
 import Text.Printf (printf)
 import qualified Cost
 import qualified Data.List as List
@@ -16,7 +16,7 @@ import qualified Data.Map as Map
 -- Sequence the Compilation and Asm generation of all instruction sequences.
 compile :: Env -> Exp -> Reg -> IO [(Cost,Code)]
 compile env exp target = do
-  let ss = Map.fromList [ (loc,[Exp (Var x)]) | (x,loc) <- Map.toList env ]
+  let ss = makeSemState (Map.fromList [ (loc,Exp(Var x)) | (x,loc) <- Map.toList env ])
   let temps = Temps [ZeroPage n | n <- [7..19]]
   xs <- runAsm Cost.lessTime temps ss (compileTarget exp target)
   pure [ (cost,code) | (code,cost,()) <- xs ]

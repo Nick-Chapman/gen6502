@@ -5,7 +5,7 @@ module Compile
 import Asm (Asm(..))
 import Codegen (preamble,codegen,locations,assign,Reg)
 import Language (Exp(..),Form(..))
-import qualified Data.Map as Map
+import Text.Printf (printf)
 
 compileTarget :: Exp -> Reg -> Asm ()
 compileTarget exp reg = do
@@ -16,29 +16,24 @@ compileTarget exp reg = do
 
 compile :: Exp -> Asm ()
 compile exp = do
-  havePreviousCompilation exp >>= \case
-    True -> pure ()
-    False -> compileU exp
+  regs <- Holding exp
+  case regs of
+    [] -> compile1 exp
+    _:_ -> pure () -- common subexpression elimination
 
-compileU :: Exp -> Asm ()
-compileU exp@(Exp form) = do
+compile1 :: Exp -> Asm ()
+compile1 exp@(Exp form) = do
+  let _ = Print (printf "compile: %s" (show exp))
   case form of
     Num{} -> pure ()
     Var{} -> pure ()
     Op1 op1 exp1 -> do
       compile exp1
-      arg <- locations exp1
-      codegen exp (Op1 op1 arg)
+      arg1 <- locations exp1
+      codegen exp (Op1 op1 arg1)
     Op2 op2 exp1 exp2 -> do
       compile exp1
       compile exp2
       arg1 <- locations exp1
       arg2 <- locations exp2
       codegen exp (Op2 op2 arg1 arg2)
-
-havePreviousCompilation :: Exp -> Asm Bool
-havePreviousCompilation exp = do
-  -- TODO share/unify with "locations" / "Located" code
-  state <- GetSemState -- TODO: should not use this. It is a cogen concept
-  let located = [ () | (_,exps) <- Map.toList state, exp `elem` exps ]
-  if not (null located) then pure True else pure False

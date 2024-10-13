@@ -391,3 +391,7 @@
 [98]example = (((a ^ x) ^ (y ^ z)) ^ ((x ^ y) ^ (z ^ a)))
 #results=32
 {28/43}: [sta 7,stx 8,eor 8,sta 9,tya,eor 1,eor 9,sta 10,tya,eor 8,sta 11,lda 1,eor 7,eor 11,eor 10] --> [A]
+
+[99]example = ((13 + 2) ^ (1 + 15))
+#results=96
+{12/17}: [lda #13,clc,adc #2,ldx #15,inx,stx 7,eor 7] --> [A]

@@ -2,7 +2,7 @@ module Instruction
   ( Code, Instruction(..), ITransfer(..), ICompute(..)
   , ZeroPage(..), Immediate(..)
   , Semantics, transfer, overwrite, noSemantics, transferSemantics, computeSemantics
-  , SemState, Reg(..)
+  , SemState, Reg(..), Exp, makeSemState, findSemState
   ) where
 
 import Util (look,extend)
@@ -10,6 +10,7 @@ import Language (Exp(..),Form(..))
 import Data.Word (Word8)
 import Text.Printf (printf)
 import Data.Map (Map)
+import qualified Data.Map as Map
 
 type Byte = Word8
 
@@ -53,9 +54,9 @@ transferSemantics = \case
   Tay -> transfer RegA RegY
   Txa -> transfer RegX RegA
   Tya -> transfer RegY RegA
-  Ldai (Immediate b) -> overwrite (Exp (Num b)) RegA
-  Ldxi (Immediate b) -> overwrite (Exp (Num b)) RegX
-  Ldyi (Immediate b) -> overwrite (Exp (Num b)) RegY
+  Ldai i -> overwriteI i RegA
+  Ldxi i -> overwriteI i RegX
+  Ldyi i -> overwriteI i RegY
   Ldaz z -> transfer (ZP z) RegA
   Ldxz z -> transfer (ZP z) RegX
   Ldyz z -> transfer (ZP z) RegY
@@ -80,21 +81,30 @@ computeSemantics e = \case
 ----------------------------------------------------------------------
 -- Semantics
 
+newtype SemState = SS { env :: Map Reg Exp }
+
+makeSemState :: Map Reg Exp -> SemState
+makeSemState env = SS { env = Map.fromList [ (loc,e) | (loc,e) <- Map.toList env ] }
+
+findSemState :: SemState -> Exp -> [Reg]
+findSemState SS{env} exp = [ loc | (loc,exp1) <- Map.toList env, exp == exp1 ]
+
 type Semantics = SemState -> SemState
 
 noSemantics :: Semantics
 noSemantics = id
 
+get :: Reg -> SemState -> Exp
+get loc SS{env} = look "get" env loc
+
 transfer :: Reg -> Reg -> Semantics
-transfer src dest = \s -> extend s dest (getS src s)
+transfer src dest = \s -> overwrite (get src s) dest s
 
 overwrite :: Exp -> Reg -> Semantics
-overwrite e loc s = extend s loc [e]
+overwrite exp reg SS{env} = SS { env = extend env reg exp }
 
-getS :: Reg -> SemState -> [Exp]
-getS loc s = look "getS" s loc
-
-type SemState = Map Reg [Exp]
+overwriteI :: Immediate -> Reg -> Semantics
+overwriteI (Immediate byte) reg = overwrite (Exp (Num byte)) reg
 
 ----------------------------------------------------------------------
 -- Reg

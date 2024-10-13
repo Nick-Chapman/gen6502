@@ -113,6 +113,7 @@ examples =
   , add (add (add a x) (add y z)) (add (add x y) (add z a))
   , xor (xor (xor a x) (xor y z)) (xor (xor x y) (xor z a))
 
+  , xor (add (num 13) (num 2)) (add (num 1) (num 15))
   ]
 
   where
