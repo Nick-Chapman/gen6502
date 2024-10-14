@@ -187,7 +187,7 @@ loadA :: Arg -> Asm ()
 loadA arg = do
   loadA1 arg
   -- Load sharing...
-  -- perhaps $ do trans Tax -- doing one is a bit expensive (improves example 99)
+  perhaps $ do trans Tax -- doing one is a bit expensive (improves example 99)
   -- perhaps $ do trans Tay -- too expensive at the moment (when testing all persm!)
 
 loadA1 :: Arg -> Asm ()

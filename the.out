@@ -309,28 +309,16 @@
 {28/43}: [sta 7,stx 8,eor 8,sta 9,tya,eor 1,eor 9,sta 10,tya,eor 8,sta 11,lda 7,eor 1,eor 11,eor 10] --> [A]
 
 [99]example = ((13 + z) ^ (1 + 13))
-{12/17}: [lda #13,clc,adc 1,ldx #13,inx,stx 7,eor 7] --> [A]
-{12/17}: [lda #13,clc,adc 1,ldy #13,iny,sty 7,eor 7] --> [A]
-{12/17}: [lda 1,clc,adc #13,ldx #13,inx,stx 7,eor 7] --> [A]
-{12/17}: [lda 1,clc,adc #13,ldy #13,iny,sty 7,eor 7] --> [A]
+{11/17}: [lda #13,tax,clc,adc 1,inx,stx 7,eor 7] --> [A]
 
 [100]example = ((13 + 2) ^ (1 + 13))
-{12/16}: [lda #2,clc,adc #13,ldx #13,inx,stx 7,eor 7] --> [A]
-{12/16}: [lda #2,clc,adc #13,ldy #13,iny,sty 7,eor 7] --> [A]
-{12/16}: [lda #13,clc,adc #2,ldx #13,inx,stx 7,eor 7] --> [A]
-{12/16}: [lda #13,clc,adc #2,ldy #13,iny,sty 7,eor 7] --> [A]
+{11/16}: [lda #13,tax,clc,adc #2,inx,stx 7,eor 7] --> [A]
 
 [101]example = ((z + 13) ^ (1 + 13))
-{12/17}: [lda #13,clc,adc 1,ldx #13,inx,stx 7,eor 7] --> [A]
-{12/17}: [lda #13,clc,adc 1,ldy #13,iny,sty 7,eor 7] --> [A]
-{12/17}: [lda 1,clc,adc #13,ldx #13,inx,stx 7,eor 7] --> [A]
-{12/17}: [lda 1,clc,adc #13,ldy #13,iny,sty 7,eor 7] --> [A]
+{11/17}: [lda #13,tax,clc,adc 1,inx,stx 7,eor 7] --> [A]
 
 [102]example = ((2 + 13) ^ (1 + 13))
-{12/16}: [lda #2,clc,adc #13,ldx #13,inx,stx 7,eor 7] --> [A]
-{12/16}: [lda #2,clc,adc #13,ldy #13,iny,sty 7,eor 7] --> [A]
-{12/16}: [lda #13,clc,adc #2,ldx #13,inx,stx 7,eor 7] --> [A]
-{12/16}: [lda #13,clc,adc #2,ldy #13,iny,sty 7,eor 7] --> [A]
+{11/16}: [lda #13,tax,clc,adc #2,inx,stx 7,eor 7] --> [A]
 
 [103]example = ((x + y) ^ (x + y))
 {10/16}: [stx 7,tya,clc,adc 7,sta 8,eor 8] --> [A]
