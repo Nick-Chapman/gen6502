@@ -92,6 +92,6 @@ run1 target env ee (i,example) = do
     error "*BAD*"
 
   -- When all is ok, show all the instruction sequences with the (same) lowest cost.
-  let ((_,lowestCost),_) = head ok
-  let best = takeWhile (\((_,cost),_) -> cost == lowestCost) ok
+  let ((lowestCost::Cost,_),_) = head ok
+  let best = takeWhile (\((cost,_),_) -> cost == lowestCost) ok
   mapM_ prRes best
