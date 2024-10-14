@@ -13,7 +13,7 @@ module Instruction
   ) where
 
 import Util (look,extend)
-import Language (Exp(..),Form(..))
+import Language (Exp(..),Form(..),Op2(..))
 import Data.Word (Word8)
 import Text.Printf (printf)
 import Data.Map (Map)
@@ -91,12 +91,12 @@ computeSemantics sem = \case
 -- Semantic values
 
 newtype Name = NameU { unique :: Int }
-  deriving (Eq)
+  deriving (Eq,Ord)
 
 instance Show Name where
   show NameU {unique} = printf "u%d" unique
 
-data Arg = Imm Immediate | Name Name deriving (Eq)
+data Arg = Imm Immediate | Name Name deriving (Eq,Ord)
 
 instance Show Arg where
   show = \case
@@ -114,8 +114,19 @@ instance Show Sem where
        Just x -> show x
        Nothing -> "*")
 
-makeSem :: Name -> Maybe (Form Arg) -> Sem
-makeSem name operM = Sem { name, operM }
+makeSem :: Name -> Form Arg -> Sem
+makeSem name oper = Sem { name, operM = Just (canonicaliseForm oper) }
+
+canonicaliseForm :: Form Arg -> Form Arg
+canonicaliseForm = \case
+  Var x -> Var x -- var shouldn't be part of form
+  Num n -> Num n
+  Op1 op a1 -> Op1 op a1
+  Op2 op@Sub a1 a2 -> Op2 op a1 a2
+  Op2 op@Add a1 a2 -> Op2 op a1' a2' where (a1',a2') = order (a1,a2)
+  Op2 op@Xor a1 a2 -> Op2 op a1' a2' where (a1',a2') = order (a1,a2)
+
+  where order (a1,a2) = if a1 < a2 then (a1,a2) else (a2,a1)
 
 ----------------------------------------------------------------------
 -- Semantic state (map from Reg)
@@ -140,7 +151,7 @@ initSS xs =  do
   (names1,
    SS
     { names = names2
-    , env = Map.fromList [ (reg,makeSem name Nothing) | (name,reg) <- zip names1 xs ]
+    , env = Map.fromList [ (reg,Sem { name, operM = Nothing}) | (name,reg) <- zip names1 xs ]
     })
 
 getFreshName :: SemState -> (Name,SemState)
@@ -155,8 +166,9 @@ findSemState SS{env} name1 =
   [ reg | (reg,Sem{name}) <- Map.toList env, name == name1 ]
 
 findSemOper :: SemState -> Oper -> Maybe Name
-findSemOper SS{env} oper1 =
-  case [ name | (_,Sem{name,operM=Just oper}) <- Map.toList env, oper == oper1 ] of
+findSemOper SS{env} oper1 = do
+  let operK = canonicaliseForm oper1
+  case [ name | (_,Sem{name,operM=Just oper}) <- Map.toList env, oper == operK ] of
     [] -> Nothing
     name:_ -> Just name
 

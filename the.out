@@ -325,5 +325,5 @@
 {10/16}: [sty 7,txa,clc,adc 7,sta 8,eor 8] --> [A]
 
 [104]example = ((x + y) ^ (y + x))
-{14/23}: [stx 7,tya,clc,adc 7,sta 8,tya,clc,adc 7,eor 8] --> [A]
-{14/23}: [sty 7,txa,clc,adc 7,sta 8,txa,clc,adc 7,eor 8] --> [A]
+{10/16}: [stx 7,tya,clc,adc 7,sta 8,eor 8] --> [A]
+{10/16}: [sty 7,txa,clc,adc 7,sta 8,eor 8] --> [A]

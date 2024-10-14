@@ -288,9 +288,9 @@ inAcc = \case
 -- generate code with computation effect
 
 comp :: Down -> ICompute -> Asm Arg
-comp (Down f) i = do
+comp (Down form) i = do
   name <- FreshName
-  let sem = makeSem name (Just f)
+  let sem = makeSem name form
   Emit (Comp i) (computeSemantics sem i)
   pure (Name name)
 
