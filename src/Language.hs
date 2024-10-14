@@ -14,10 +14,10 @@ type Byte = Word8
 ----------------------------------------------------------------------
 -- exp
 
-data Exp = Exp (Form Exp) -- TODO Var should be here, not in Form
+data Exp = Form (Form Exp) | Var Var
   deriving (Eq)
 
-data Form e = Var Var | Num Byte | Op2 Op2 e e | Op1 Op1 e
+data Form e = Num Byte | Op2 Op2 e e | Op1 Op1 e
   deriving (Eq)
 
 data Op1 = Asl
@@ -34,25 +34,27 @@ type Var = String
 type EvalEnv = Map Var Byte
 
 eval :: EvalEnv -> Exp -> Byte
-eval ee (Exp form) =
-  case form of
-    Num n -> n
-    Var x -> look "eval" ee x
-    Op1 Asl exp1 -> 2 * eval ee exp1
-    Op2 Add exp1 exp2 -> eval ee exp1 + eval ee exp2
-    Op2 Sub exp1 exp2 -> eval ee exp1 - eval ee exp2
-    Op2 Xor exp1 exp2 -> eval ee exp1 `xor` eval ee exp2
+eval ee = \case
+  Var x -> look "eval" ee x
+  Form form ->
+    case form of
+      Num n -> n
+      Op1 Asl exp1 -> 2 * eval ee exp1
+      Op2 Add exp1 exp2 -> eval ee exp1 + eval ee exp2
+      Op2 Sub exp1 exp2 -> eval ee exp1 - eval ee exp2
+      Op2 Xor exp1 exp2 -> eval ee exp1 `xor` eval ee exp2
 
 ----------------------------------------------------------------------
 -- show
 
 instance Show Exp where
-  show (Exp form) = show form
+  show = \case
+    Form form -> show form
+    Var x -> x
 
 instance Show a => Show (Form a) where
   show = \case
     Num n -> show n
-    Var x -> x
     Op1 Asl e -> printf "(%s << 1)" (show e)
     Op2 Add e1 e2 -> printf "(%s + %s)" (show e1) (show e2)
     Op2 Sub e1 e2 -> printf "(%s - %s)" (show e1) (show e2)

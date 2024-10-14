@@ -125,12 +125,12 @@ examples =
 
   where
 
-    num n = Exp (Num n)
-    var x = Exp (Var x)
-    add e1 e2 = Exp (Op2 Add e1 e2)
-    sub e1 e2 = Exp (Op2 Sub e1 e2)
-    xor e1 e2 = Exp (Op2 Xor e1 e2)
-    asl e = Exp (Op1 Asl e)
+    num n = Form (Num n)
+    var x = Var x
+    add e1 e2 = Form (Op2 Add e1 e2)
+    sub e1 e2 = Form (Op2 Sub e1 e2)
+    xor e1 e2 = Form (Op2 Xor e1 e2)
+    asl e = Form (Op1 Asl e)
 
     a = var "a"
     x = var "x"

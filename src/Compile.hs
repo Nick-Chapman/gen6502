@@ -18,19 +18,19 @@ compileTarget env exp reg = do
   assign reg arg
 
 compile :: Env -> Exp -> Asm Arg
-compile env exp@(Exp form) = do
+compile env exp = do
   let _ = Print (printf "compile: %s" (show exp))
-  case form of
-
+  case exp of
     Var x -> pure (Name (look "compile" env x))
+    Form form -> case form of
 
-    Num n -> codegen (Num n)
+      Num n -> codegen (Num n)
 
-    Op1 op1 exp1 -> do
-      arg1 <- compile env exp1
-      codegen (Op1 op1 arg1)
+      Op1 op1 exp1 -> do
+        arg1 <- compile env exp1
+        codegen (Op1 op1 arg1)
 
-    Op2 op2 exp1 exp2 -> do
-      arg1 <- compile env exp1
-      arg2 <- compile env exp2
-      codegen (Op2 op2 arg1 arg2)
+      Op2 op2 exp1 exp2 -> do
+        arg1 <- compile env exp1
+        arg2 <- compile env exp2
+        codegen (Op2 op2 arg1 arg2)

@@ -119,7 +119,6 @@ makeSem name oper = Sem { name, operM = Just (canonicaliseForm oper) }
 
 canonicaliseForm :: Form Arg -> Form Arg
 canonicaliseForm = \case
-  Var x -> Var x -- var shouldn't be part of form
   Num n -> Num n
   Op1 op a1 -> Op1 op a1
   Op2 op@Sub a1 a2 -> Op2 op a1 a2
