@@ -1,31 +1,13 @@
 module Codegen
-  ( preamble, codegen, locations, assign, Reg
+  ( preamble, codegen, assign, Reg, Name, Arg(..)
   ) where
 
 import Asm (Asm(..))
-import Instruction (Instruction(..),ITransfer(..),ICompute(..),Reg(..),ZeroPage(..),Immediate(..),noSemantics,transferSemantics,computeSemantics)
-import Language (Exp(..),Form(..),Op2(..),Op1(..))
-import Text.Printf (printf)
-
-----------------------------------------------------------------------
--- Arg
-
-data Arg = Imm Immediate | Loc Located deriving (Eq)
-
-data Located = Located { a,x,y::Bool,z::Maybe ZeroPage } deriving (Eq)
-
-instance Show Located where
-  show located = show (everywhere located)
-
-instance Show Arg where
-  show = \case
-    Imm imm -> show imm
-    Loc located  -> show located
+import Instruction (Instruction(..),ITransfer(..),ICompute(..),Reg(..),ZeroPage(..),Immediate(..),noSemantics,transferSemantics,computeSemantics,Name,Arg(..),makeSem)
+import Language (Form(..),Op2(..),Op1(..))
 
 ----------------------------------------------------------------------
 -- instruction selection and code generation
-
-type Gen = Exp -> Form Arg -> Asm ()
 
 preamble :: Asm ()
 preamble = do
@@ -33,13 +15,33 @@ preamble = do
   perhaps spillX
   perhaps spillY
 
-codegen :: Gen
-codegen = select
+type GenX = Form Arg -> Asm Arg
+
+codegen :: GenX
+codegen f = do
+  let oper = f
+  xm <- FindOper oper
+  case xm of
+    Just name -> pure (Name name)
+    Nothing -> codegen1 (Down f) f
+
+data Down = Down (Form Arg)
+
+type Gen = Down -> Form Arg -> Asm Arg
+
+codegen1 :: Gen
+codegen1 = select
   [ do driveA `conclude` perhaps spillA
   , do driveX `conclude` perhaps spillX
   , do driveY `conclude` perhaps spillY
   , do driveZ
+  , do numeric
   ]
+
+numeric :: Gen
+numeric _e = \case
+  Num n -> pure (Imm (Immediate n))
+  _ -> Nope
 
 perhaps :: Asm () -> Asm ()
 perhaps a = Alt (pure ()) a
@@ -54,7 +56,10 @@ select :: [Gen] -> Gen
 select gs = \e f -> alternatives [ g e f | g <- gs ]
 
 conclude :: Gen -> Asm () -> Gen
-conclude gen afterwards = \e f -> do gen e f; afterwards
+conclude gen afterwards = \e f -> do
+  arg <- gen e f
+  afterwards
+  pure arg
 
 ----------------------------------------------------------------------
 -- assign a specific register (for calling conventions)
@@ -69,7 +74,8 @@ assign = \case
 store :: ZeroPage -> Arg -> Asm ()
 store target = \case
   Imm imm -> do trans (Ldai imm); trans (Sta target)
-  Loc Located{a,x,y,z} ->
+  Name name -> do
+    Located{a,x,y,z} <- locations name
     if a then trans (Sta target) else do
       if x then trans (Stx target) else do
         if y then trans (Sty target) else do
@@ -82,41 +88,43 @@ store target = \case
 -- instruction selection
 
 doublingA :: Gen
-doublingA = \e ->  \case
+doublingA = \e -> \case
   Op1 Asl arg -> do loadA arg; comp e Asla
   _ -> Nope
 
 addition :: Gen
 addition = \e -> \case
-  Op2 Add arg1 arg2 ->
-    if inAcc arg1 && inAcc arg2
+  Op2 Add arg1 arg2 -> do
+    b1 <- inAcc arg1
+    b2 <- inAcc arg2
+    if b1 && b2
     then comp e (Asla)
     else commutativeBinOp (addIntoA e) arg1 arg2
   _ ->
     Nope
 
-addIntoA :: Exp -> Arg -> Asm ()
+addIntoA :: Down -> Arg -> Asm Arg
 addIntoA e = \case
   Imm imm -> do clc; comp e (Adci imm)
-  Loc Located{z} ->
+  Name name -> do
+    Located{z} <- locations name
     -- only location: Z (not A,X,Y)
     case z of
       Just z -> do clc; comp e (Adcz z)
       Nothing -> Nope
 
-
 subtraction :: Gen
 subtraction = \e -> \case
-  Op2 Sub arg1 arg2 ->
-    if inAcc arg1 then subIntoA e arg2 else
-      do loadA arg1; subIntoA e arg2
+  Op2 Sub arg1 arg2 -> do
+    do loadA arg1; subIntoA e arg2
   _ ->
     Nope
 
-subIntoA :: Exp -> Arg -> Asm ()
+subIntoA :: Down -> Arg -> Asm Arg
 subIntoA e = \case
   Imm imm -> do sec; comp e (Sbci imm)
-  Loc Located{z} ->
+  Name name -> do
+    Located{z} <- locations name
     -- only location: Z (not A,X,Y)
     case z of
       Just z -> do sec; comp e (Sbcz z)
@@ -129,25 +137,30 @@ xor = \e -> \case
   _ ->
     Nope
 
-eorIntoA :: Exp -> Arg -> Asm ()
+eorIntoA :: Down -> Arg -> Asm Arg
 eorIntoA e = \case
   Imm imm -> do comp e (Eori imm)
-  Loc Located{z} ->
+  Name name -> do
+    Located{z} <- locations name
     -- only location: Z (not A,X,Y)
     case z of
       Just z -> do comp e (Eorz z)
       Nothing -> Nope
 
 
-commutativeBinOp :: (Arg -> Asm ()) -> Arg -> Arg -> Asm ()
+commutativeBinOp :: (Arg -> Asm Arg) -> Arg -> Arg -> Asm Arg
 commutativeBinOp doOpInA arg1 arg2 = do
-  if inAcc arg1 then doOpInA arg2 else
-    if inAcc arg2 then doOpInA arg1 else
-      if arg1 == arg2
-      then do loadA arg1; doOpInA arg2
-      else
-        alternatives [ do loadA arg1; doOpInA arg2
-                     , do loadA arg2; doOpInA arg1 ]
+  inAcc arg1 >>= \case
+    True -> doOpInA arg2
+    False ->
+      inAcc arg2 >>= \case
+      True -> doOpInA arg1
+      False ->
+        if arg1 == arg2
+        then do loadA arg1; doOpInA arg2
+        else
+          alternatives [ do loadA arg1; doOpInA arg2
+                       , do loadA arg2; doOpInA arg1 ]
 
 
 incrementX :: Gen
@@ -176,7 +189,8 @@ doublingZ = \e ->  \case
 inZP :: Arg -> Asm ZeroPage
 inZP = \case
   Imm{} -> Nope
-  Loc Located{z} ->
+  Name name -> do
+    Located{z} <- locations name
     case z of
       Just z -> pure z
       Nothing -> Nope
@@ -193,7 +207,8 @@ loadA arg = do
 loadA1 :: Arg -> Asm ()
 loadA1 = \case
   Imm imm -> trans (Ldai imm)
-  Loc Located{a,x,y,z} ->
+  Name name -> do
+    Located{a,x,y,z} <- locations name
     -- prefer location: A,X,Y,Z
     if a then pure () else do
       if x then trans Txa else do
@@ -205,7 +220,8 @@ loadA1 = \case
 loadX :: Arg -> Asm ()
 loadX = \case
   Imm imm -> trans (Ldxi imm)
-  Loc Located{a,x,y,z} ->
+  Name name -> do
+    Located{a,x,y,z} <- locations name
     -- prefer location: X,A,Z (not Y)
     if x then pure () else do
       if a then trans Tax else
@@ -218,7 +234,8 @@ loadX = \case
 loadY :: Arg -> Asm ()
 loadY = \case
   Imm imm -> trans (Ldyi imm)
-  Loc Located{a,x,y,z} ->
+  Name name -> do
+    Located{a,x,y,z} <- locations name
     -- prefer location: Y,A,Z (not X)
     if y then pure () else do
       if a then trans Tay else
@@ -239,44 +256,56 @@ sec = Emit Sec noSemantics
 
 spillA :: Asm ()
 spillA = do
-  z <- Fresh
+  z <- FreshTemp
   trans (Sta z)
 
 spillX :: Asm ()
 spillX = do
-  z <- Fresh
+  z <- FreshTemp
   trans (Stx z)
 
 spillY :: Asm ()
 spillY = do
-  z <- Fresh
+  z <- FreshTemp
   trans (Sty z)
 
 trans :: ITransfer -> Asm ()
 trans i = Emit (Tx i) (transferSemantics i)
-
-comp :: Exp -> ICompute -> Asm ()
-comp e i = Emit (Comp i) (computeSemantics e i)
 
 alternatives :: [Asm a] -> Asm a
 alternatives = \case
   [] -> Nope
   x:xs -> foldl Alt x xs
 
+inAcc :: Arg -> Asm Bool
+inAcc = \case
+  Imm{} -> pure False
+  Name name -> do
+    Located{a} <- locations name
+    pure a
+
+----------------------------------------------------------------------
+-- generate code with computation effect
+
+comp :: Down -> ICompute -> Asm Arg
+comp (Down f) i = do
+  name <- FreshName
+  let sem = makeSem name (Just f)
+  Emit (Comp i) (computeSemantics sem i)
+  pure (Name name)
+
 ----------------------------------------------------------------------
 -- Located
 
-locations :: Exp -> Asm Arg
-locations exp = do
-  xs <- Holding exp
-  let _ = Print (printf "%s --> %s" (show exp) (show xs))
-  let arg = Loc (classifyRegs xs)
-  case xs of
-    _:_ -> pure arg
-    [] ->
-      case exp of
-        Exp (Num b) -> Alt (pure (Imm (Immediate b))) (pure arg)
-        _ -> Nope
+locations :: Name -> Asm Located
+locations name = do
+  xs <- FindName name
+  pure (classifyRegs xs)
+
+data Located = Located { a,x,y::Bool,z::Maybe ZeroPage } deriving (Eq)
+
+instance Show Located where
+  show located = show (everywhere located)
 
 classifyRegs :: [Reg] -> Located
 classifyRegs xs = do
@@ -297,8 +326,3 @@ everywhere Located{a,x,y,z} = do
     , if y then [RegY] else []
     , case z of Just z -> [ZP z]; Nothing -> []
     ]
-
-inAcc :: Arg -> Bool
-inAcc = \case
-  Imm{} -> False
-  Loc Located{a} -> a

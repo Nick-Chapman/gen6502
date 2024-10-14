@@ -1,5 +1,5 @@
 module Emulate
-  ( MachineState, initMS, emulate, Env
+  ( MachineState, initMS, emulate, EmuEnv
   ) where
 
 import Data.Bits (xor)
@@ -12,7 +12,7 @@ import qualified Data.Map as Map
 
 type Byte = Word8
 
-type Env = Map Var Reg
+type EmuEnv = Map Var Reg
 
 emulate :: MachineState -> Code -> Reg -> Byte
 emulate ms0 code locFinal = steps ms0 code
@@ -27,7 +27,7 @@ emulate ms0 code locFinal = steps ms0 code
 data MachineState = MS { m :: Map Reg Byte } -- flags will go in here also
   deriving Show
 
-initMS :: Env -> EvalEnv -> MachineState
+initMS :: EmuEnv -> EvalEnv -> MachineState
 initMS env ee = do
   let m = Map.fromList [ (loc,look "initMS" ee var) | (var,loc) <- Map.toList env ]
   MS m

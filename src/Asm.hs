@@ -5,7 +5,7 @@ module Asm
 import Control.Monad (ap,liftM)
 import Cost(Cost,cost)
 import Data.List (sortBy)
-import Instruction (Code,Instruction,ZeroPage,Semantics,SemState,Exp,Reg,findSemState)
+import Instruction (Code,Instruction,ZeroPage,Semantics,SemState,Reg,findSemState,findSemOper,Name,getFreshName,Oper)
 import qualified Cost
 
 instance Functor Asm where fmap = liftM
@@ -17,9 +17,11 @@ data Asm a where
   Bind :: Asm a -> (a -> Asm b) -> Asm b
   Alt :: Asm a -> Asm a -> Asm a
   Nope :: Asm a
-  Fresh :: Asm ZeroPage
+  FreshTemp :: Asm ZeroPage
+  FreshName :: Asm Name
   Emit :: Instruction -> Semantics -> Asm ()
-  Holding :: Exp -> Asm [Reg]
+  FindOper :: Oper -> Asm (Maybe Name)
+  FindName :: Name -> Asm [Reg]
   Print :: String -> Asm ()
 
 type CostOrdering = Cost -> Cost -> Ordering
@@ -70,16 +72,25 @@ runAsm costOrdering temps0 ss0 asm0 = do
       Nope -> do
         pure []
 
-      Holding exp -> do
-        let regs = findSemState ss exp
-        pure [([],zero,s,regs)]
-
-      Fresh -> do
+      FreshTemp -> do
         case temps of
           Temps [] -> error "run out of temps"
           Temps (z:zs) -> do
             let s' = s { temps = Temps zs }
             pure [([],zero,s',z)]
+
+      FreshName -> do
+        let (name,ss') = getFreshName ss
+        let s' = s { ss = ss' }
+        pure [([],zero,s',name)]
+
+      FindOper oper -> do
+        let x = findSemOper ss oper
+        pure [([],zero,s,x)]
+
+      FindName name -> do
+        let regs = findSemState ss name
+        pure [([],zero,s,regs)]
 
       Emit instruction semantics -> do
         let s' = s { ss = semantics ss }

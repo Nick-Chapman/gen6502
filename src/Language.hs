@@ -14,7 +14,7 @@ type Byte = Word8
 ----------------------------------------------------------------------
 -- exp
 
-data Exp = Exp (Form Exp)
+data Exp = Exp (Form Exp) -- TODO Var should be here, not in Form
   deriving (Eq)
 
 data Form e = Var Var | Num Byte | Op2 Op2 e e | Op1 Op1 e

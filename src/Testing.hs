@@ -4,21 +4,25 @@ import Asm (runAsm,Temps(..))
 import Compile (compileTarget)
 import Control.Monad (when)
 import Cost (Cost)
-import Emulate (Env,initMS,emulate)
+import Emulate (EmuEnv,initMS,emulate)
 import Examples (examples)
-import Instruction (Code,Reg(..),ZeroPage(..),makeSemState)
-import Language (Exp(..),Form(Var),EvalEnv,eval)
+import Instruction (Code,Reg(..),ZeroPage(..),initSS)
+import Language (Exp(..),EvalEnv,eval)
 import Text.Printf (printf)
 import qualified Cost
 import qualified Data.List as List
 import qualified Data.Map as Map
 
 -- Sequence the Compilation and Asm generation of all instruction sequences.
-compile :: Env -> Exp -> Reg -> IO [(Cost,Code)]
-compile env exp target = do
-  let ss = makeSemState (Map.fromList [ (loc,Exp(Var x)) | (x,loc) <- Map.toList env ])
+compile :: EmuEnv -> Exp -> Reg -> IO [(Cost,Code)]
+compile mu exp target = do
+
+  let (vars,regs) = unzip (Map.toList mu)
+  let (names,ss) = initSS regs
+  let env = Map.fromList (zip vars names)
+
   let temps = Temps [ZeroPage n | n <- [7..19]]
-  xs <- runAsm Cost.lessTime temps ss (compileTarget exp target)
+  xs <- runAsm Cost.lessTime temps ss (compileTarget env exp target)
   pure [ (cost,code) | (code,cost,()) <- xs ]
 
 runTests :: IO ()
@@ -33,7 +37,7 @@ runTests = do
     z2 = "z2"
 
   -- Binding of variables to registers (calling convention).
-  let env :: Env = Map.fromList [(a,RegA), (x,RegX), (y,RegY), (z,ZP 1), (z2,ZP 2)]
+  let env :: EmuEnv = Map.fromList [(a,RegA), (x,RegX), (y,RegY), (z,ZP 1), (z2,ZP 2)]
 
   -- Binding of variables to values (for testing of eval vs emulation).
   let ee :: EvalEnv = Map.fromList [(a,13),(x,42),(y,101),(z,19),(z2,28)]
@@ -45,8 +49,8 @@ runTests = do
   mapM_ (run1 target env ee) (zip [1::Int ..] examples)
 
 
-run1 :: Reg -> Env -> EvalEnv -> (Int,Exp) -> IO ()
-run1 target env ee (i,example) = do
+run1 :: Reg -> EmuEnv -> EvalEnv -> (Int,Exp) -> IO ()
+run1 target mu ee (i,example) = do
 
   printf "\n[%d]example = %s\n" i (show example)
 
@@ -54,7 +58,7 @@ run1 target env ee (i,example) = do
   let eres = eval ee example
 
   -- Compile the example; generating all instruction sequences.
-  rs <- compile env example target
+  rs <- compile mu example target
 
   -- Error if we dont have at least one sequence.
   if length rs == 0 then error "#results==0" else pure ()
@@ -69,7 +73,7 @@ run1 target env ee (i,example) = do
     error "*NUB*"
 
   -- Emulate each instruction sequence.
-  let ms0 = initMS env ee
+  let ms0 = initMS mu ee
   let rsWithEmu = [ (r, emulate ms0 code target) | r@(_,code) <- rsNubbed ]
 
   -- Check the emulation result matches the expected result from evaluation.
