@@ -61,7 +61,7 @@ conclude gen afterwards = \e f -> do gen e f; afterwards
 
 assign :: Reg -> Arg -> Asm ()
 assign = \case
-  RegA -> loadA
+  RegA -> loadA1
   RegX -> loadX
   RegY -> loadY
   ZP z -> store z
@@ -91,12 +91,7 @@ addition = \e -> \case
   Op2 Add arg1 arg2 ->
     if inAcc arg1 && inAcc arg2
     then comp e (Asla)
-    else
-      if inAcc arg1 then addIntoA e arg2 else
-        if inAcc arg2 then addIntoA e arg1 else
-          if canOp arg2
-          then do loadA arg1; addIntoA e arg2
-          else do loadA arg2; addIntoA e arg1 -- swap
+    else commutativeBinOp (addIntoA e) arg1 arg2
   _ ->
     Nope
 
@@ -130,11 +125,7 @@ subIntoA e = \case
 xor :: Gen
 xor = \e -> \case
   Op2 Xor arg1 arg2 ->
-    if inAcc arg1 then eorIntoA e arg2 else
-      if inAcc arg2 then eorIntoA e arg1 else
-        if canOp arg2
-        then do loadA arg1; eorIntoA e arg2
-        else do loadA arg2; eorIntoA e arg1 -- swap
+    commutativeBinOp (eorIntoA e) arg1 arg2
   _ ->
     Nope
 
@@ -146,6 +137,18 @@ eorIntoA e = \case
     case z of
       Just z -> do comp e (Eorz z)
       Nothing -> Nope
+
+
+commutativeBinOp :: (Arg -> Asm ()) -> Arg -> Arg -> Asm ()
+commutativeBinOp doOpInA arg1 arg2 = do
+  if inAcc arg1 then doOpInA arg2 else
+    if inAcc arg2 then doOpInA arg1 else
+      if arg1 == arg2
+      then do loadA arg1; doOpInA arg2
+      else
+        alternatives [ do loadA arg1; doOpInA arg2
+                     , do loadA arg2; doOpInA arg1 ]
+
 
 incrementX :: Gen
 incrementX = \e -> \case
@@ -181,7 +184,14 @@ inZP = \case
 -- TODO: compile time constant folding
 
 loadA :: Arg -> Asm ()
-loadA = \case
+loadA arg = do
+  loadA1 arg
+  -- Load sharing...
+  -- perhaps $ do trans Tax -- doing one is a bit expensive (improves example 99)
+  -- perhaps $ do trans Tay -- too expensive at the moment (when testing all persm!)
+
+loadA1 :: Arg -> Asm ()
+loadA1 = \case
   Imm imm -> trans (Ldai imm)
   Loc Located{a,x,y,z} ->
     -- prefer location: A,X,Y,Z
@@ -292,9 +302,3 @@ inAcc :: Arg -> Bool
 inAcc = \case
   Imm{} -> False
   Loc Located{a} -> a
-
-canOp :: Arg -> Bool
-canOp = \case
-  Imm _ -> True
-  Loc Located{z=Just{}} -> True
-  Loc{} -> False

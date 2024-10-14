@@ -51,6 +51,7 @@
 {4/6}: [tya,clc,adc #2] --> [A]
 
 [17]example = (z + 2)
+{5/7}: [lda #2,clc,adc 1] --> [A]
 {5/7}: [lda 1,clc,adc #2] --> [A]
 
 [18]example = (3 + a)
@@ -64,6 +65,7 @@
 
 [21]example = (3 + z)
 {5/7}: [lda #3,clc,adc 1] --> [A]
+{5/7}: [lda 1,clc,adc #3] --> [A]
 
 [22]example = (a + a)
 {1/2}: [asl a] --> [A]
@@ -117,9 +119,11 @@
 
 [38]example = (z + z2)
 {5/8}: [lda 1,clc,adc 2] --> [A]
+{5/8}: [lda 2,clc,adc 1] --> [A]
 
 [39]example = (17 + 19)
 {5/6}: [lda #17,clc,adc #19] --> [A]
+{5/6}: [lda #19,clc,adc #17] --> [A]
 
 [40]example = (14 + 1)
 {4/6}: [ldx #14,inx,txa] --> [A]
@@ -269,6 +273,7 @@
 
 [88]example = ((17 + 19) + (17 + 19))
 {6/8}: [lda #17,clc,adc #19,asl a] --> [A]
+{6/8}: [lda #19,clc,adc #17,asl a] --> [A]
 
 [89]example = (a ^ (a << 1))
 {5/8}: [sta 7,asl a,eor 7] --> [A]
@@ -297,25 +302,35 @@
 
 [97]example = (((a + x) + (y + z)) + ((x + y) + (z + a)))
 {35/57}: [sta 7,stx 8,clc,adc 8,sta 9,tya,clc,adc 1,clc,adc 9,sta 10,tya,clc,adc 8,sta 11,lda 1,clc,adc 7,clc,adc 11,clc,adc 10] --> [A]
+{35/57}: [sta 7,stx 8,clc,adc 8,sta 9,tya,clc,adc 1,clc,adc 9,sta 10,tya,clc,adc 8,sta 11,lda 7,clc,adc 1,clc,adc 11,clc,adc 10] --> [A]
 
 [98]example = (((a ^ x) ^ (y ^ z)) ^ ((x ^ y) ^ (z ^ a)))
 {28/43}: [sta 7,stx 8,eor 8,sta 9,tya,eor 1,eor 9,sta 10,tya,eor 8,sta 11,lda 1,eor 7,eor 11,eor 10] --> [A]
+{28/43}: [sta 7,stx 8,eor 8,sta 9,tya,eor 1,eor 9,sta 10,tya,eor 8,sta 11,lda 7,eor 1,eor 11,eor 10] --> [A]
 
 [99]example = ((13 + z) ^ (1 + 13))
 {12/17}: [lda #13,clc,adc 1,ldx #13,inx,stx 7,eor 7] --> [A]
 {12/17}: [lda #13,clc,adc 1,ldy #13,iny,sty 7,eor 7] --> [A]
+{12/17}: [lda 1,clc,adc #13,ldx #13,inx,stx 7,eor 7] --> [A]
+{12/17}: [lda 1,clc,adc #13,ldy #13,iny,sty 7,eor 7] --> [A]
 
 [100]example = ((13 + 2) ^ (1 + 13))
+{12/16}: [lda #2,clc,adc #13,ldx #13,inx,stx 7,eor 7] --> [A]
+{12/16}: [lda #2,clc,adc #13,ldy #13,iny,sty 7,eor 7] --> [A]
 {12/16}: [lda #13,clc,adc #2,ldx #13,inx,stx 7,eor 7] --> [A]
 {12/16}: [lda #13,clc,adc #2,ldy #13,iny,sty 7,eor 7] --> [A]
 
 [101]example = ((z + 13) ^ (1 + 13))
+{12/17}: [lda #13,clc,adc 1,ldx #13,inx,stx 7,eor 7] --> [A]
+{12/17}: [lda #13,clc,adc 1,ldy #13,iny,sty 7,eor 7] --> [A]
 {12/17}: [lda 1,clc,adc #13,ldx #13,inx,stx 7,eor 7] --> [A]
 {12/17}: [lda 1,clc,adc #13,ldy #13,iny,sty 7,eor 7] --> [A]
 
 [102]example = ((2 + 13) ^ (1 + 13))
 {12/16}: [lda #2,clc,adc #13,ldx #13,inx,stx 7,eor 7] --> [A]
 {12/16}: [lda #2,clc,adc #13,ldy #13,iny,sty 7,eor 7] --> [A]
+{12/16}: [lda #13,clc,adc #2,ldx #13,inx,stx 7,eor 7] --> [A]
+{12/16}: [lda #13,clc,adc #2,ldy #13,iny,sty 7,eor 7] --> [A]
 
 [103]example = ((x + y) ^ (x + y))
 {10/16}: [stx 7,tya,clc,adc 7,sta 8,eor 8] --> [A]
