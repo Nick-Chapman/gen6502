@@ -1,14 +1,15 @@
 module Testing (runTests) where
 
 import Asm (runAsm,Temps(..))
-import Compile (compileTarget)
 import Codegen (Arg(..))
+import Compile (compileTarget)
 import Control.Monad (when)
 import Cost (Cost)
 import Emulate (EmuEnv,initMS,emulate)
 import Examples (examples)
-import Instruction (Code,Reg(..),ZeroPage(..),initSS)
+import Instruction (Code)
 import Language (Exp(..),EvalEnv,eval)
+import Semantics (Reg(..),ZeroPage(..),initSS)
 import Text.Printf (printf)
 import qualified Cost
 import qualified Data.List as List

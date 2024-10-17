@@ -3,9 +3,11 @@ module Asm
   ) where
 
 import Control.Monad (ap,liftM)
-import Cost(Cost,cost)
+import Cost (Cost,cost)
 import Data.List (sortBy)
-import Instruction (Code,Instruction,ZeroPage,Semantics,SemState,Reg,findSemState,findSemOper,Name,getFreshName,Oper)
+import Instruction (Code,Instruction)
+import Semantics (ZeroPage,Semantics,SemState,Reg,findSemState,findSemOper,Name,getFreshName,Oper)
+
 import qualified Cost
 
 instance Functor Asm where fmap = liftM

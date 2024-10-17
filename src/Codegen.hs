@@ -3,8 +3,9 @@ module Codegen
   ) where
 
 import Asm (Asm(..))
-import Instruction (Instruction(..),ITransfer(..),ICompute(..),Reg(..),ZeroPage(..),Immediate(..),noSemantics,transferSemantics,computeSemantics,Name,Arg(..),makeSem)
+import Instruction (Instruction(..),ITransfer(..),ICompute(..),transferSemantics,computeSemantics)
 import Language (Form(..),Op2(..),Op1(..))
+import Semantics (Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem)
 
 ----------------------------------------------------------------------
 -- instruction selection and code generation

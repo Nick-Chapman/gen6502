@@ -5,8 +5,9 @@ module Emulate
 import Data.Bits (xor)
 import Data.Map (Map)
 import Data.Word (Word8)
-import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),Immediate(..),Reg(..))
+import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..))
 import Language (Var,EvalEnv)
+import Semantics (Reg(..),Immediate(..))
 import Util (look,extend)
 import qualified Data.Map as Map
 
