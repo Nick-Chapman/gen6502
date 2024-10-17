@@ -1,6 +1,6 @@
 module Examples (examples) where
 
-import Language (Exp(..),Form(..),Op1(..),Op2(..))
+import Language (Var,Exp(..),Form(..),Op1(..),Op2(..))
 
 examples :: [Exp]
 examples =
@@ -121,6 +121,7 @@ examples =
   , xor (add x y) (add x y) -- syntactic CSE
   , xor (add x y) (add y x) -- semantic CSE
 
+  , let_ "xy" (add x y) (xor (var "xy") (var "xy"))
   ]
 
   where
@@ -131,6 +132,9 @@ examples =
     sub e1 e2 = Form (Op2 Sub e1 e2)
     xor e1 e2 = Form (Op2 Xor e1 e2)
     asl e = Form (Op1 Asl e)
+
+    let_ :: Var -> Exp -> Exp -> Exp
+    let_ x rhs body = Let x rhs body
 
     a = var "a"
     x = var "x"

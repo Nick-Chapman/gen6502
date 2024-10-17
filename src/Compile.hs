@@ -3,13 +3,13 @@ module Compile
   ) where
 
 import Asm (Asm(..))
-import Codegen (preamble,codegen,assign,Reg,Name,Arg(..))
+import Codegen (preamble,codegen,assign,Reg,Arg)
 import Data.Map (Map)
 import Language (Exp(..),Form(..),Var)
 import Text.Printf (printf)
-import Util (look)
+import Util (look,extend)
 
-type Env = Map Var Name
+type Env = Map Var Arg
 
 compileTarget :: Env -> Exp -> Reg -> Asm ()
 compileTarget env exp reg = do
@@ -21,7 +21,12 @@ compile :: Env -> Exp -> Asm Arg
 compile env exp = do
   let _ = Print (printf "compile: %s" (show exp))
   case exp of
-    Var x -> pure (Name (look "compile" env x))
+    Var x -> pure (look "compile" env x)
+
+    Let x rhs body -> do
+      rhs <- compile env rhs
+      compile (extend env x rhs) body
+
     Form form -> case form of
 
       Num n -> codegen (Num n)

@@ -327,3 +327,7 @@
 [104]example = ((x + y) ^ (y + x))
 {10/16}: [stx 7,tya,clc,adc 7,sta 8,eor 8] --> [A]
 {10/16}: [sty 7,txa,clc,adc 7,sta 8,eor 8] --> [A]
+
+[105]example = (let xy = (x + y) in (xy ^ xy))
+{10/16}: [stx 7,tya,clc,adc 7,sta 8,eor 8] --> [A]
+{10/16}: [sty 7,txa,clc,adc 7,sta 8,eor 8] --> [A]

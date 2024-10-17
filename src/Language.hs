@@ -7,14 +7,14 @@ import Data.Bits (xor)
 import Data.Map (Map)
 import Data.Word (Word8)
 import Text.Printf (printf)
-import Util (look)
+import Util (look,extend)
 
 type Byte = Word8
 
 ----------------------------------------------------------------------
 -- exp
 
-data Exp = Form (Form Exp) | Var Var
+data Exp = Form (Form Exp) | Var Var | Let Var Exp Exp
   deriving (Eq)
 
 data Form e = Num Byte | Op2 Op2 e e | Op1 Op1 e
@@ -36,6 +36,7 @@ type EvalEnv = Map Var Byte
 eval :: EvalEnv -> Exp -> Byte
 eval ee = \case
   Var x -> look "eval" ee x
+  Let x rhs body -> eval (extend ee x (eval ee rhs)) body
   Form form ->
     case form of
       Num n -> n
@@ -49,6 +50,7 @@ eval ee = \case
 
 instance Show Exp where
   show = \case
+    Let x rhs body -> printf "(let %s = %s in %s)" x (show rhs) (show body)
     Form form -> show form
     Var x -> x
 

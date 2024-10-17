@@ -2,6 +2,7 @@ module Testing (runTests) where
 
 import Asm (runAsm,Temps(..))
 import Compile (compileTarget)
+import Codegen (Arg(..))
 import Control.Monad (when)
 import Cost (Cost)
 import Emulate (EmuEnv,initMS,emulate)
@@ -19,7 +20,7 @@ compile mu exp target = do
 
   let (vars,regs) = unzip (Map.toList mu)
   let (names,ss) = initSS regs
-  let env = Map.fromList (zip vars names)
+  let env = Map.fromList [ (x,Name name) | (x,name) <- zip vars names ]
 
   let temps = Temps [ZeroPage n | n <- [7..19]]
   xs <- runAsm Cost.lessTime temps ss (compileTarget env exp target)
