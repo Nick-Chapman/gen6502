@@ -1,14 +1,13 @@
 
 module Semantics
   ( Immediate(..), ZeroPage(..), Reg(..)
-  , Name, Arg(..), Oper, Sem, makeSem
+  , Name, Arg(..), Oper(..), Sem, makeSem
   , Semantics, noSemantics, transfer, overwrite, overwriteI
   , SemState, initSS, getFreshName, findSemState, findSemOper
   ) where
 
 import Data.Map (Map)
 import Data.Word (Word8)
-import Language (Form(..),Op2(..))
 import Text.Printf (printf)
 import Util (look,extend)
 import qualified Data.Map as Map
@@ -31,7 +30,13 @@ instance Show Arg where
     Imm imm -> show imm
     Name name -> show name
 
-type Oper = Form Arg
+data Oper
+  = Num Byte
+  | Add Arg Arg
+  | Sub Arg Arg
+  | Xor Arg Arg
+  | Asl Arg
+  deriving (Eq,Show)
 
 data Sem = Sem { name :: Name , operM :: Maybe Oper} deriving (Eq)
 
@@ -42,19 +47,8 @@ instance Show Sem where
        Just x -> show x
        Nothing -> "*")
 
-makeSem :: Name -> Form Arg -> Sem
-makeSem name oper = Sem { name, operM = Just (canonicaliseForm oper) }
-
-
-canonicaliseForm :: Form Arg -> Form Arg -- TODO: not here
-canonicaliseForm = \case
-  Num n -> Num n
-  Op1 op a1 -> Op1 op a1
-  Op2 op@Sub a1 a2 -> Op2 op a1 a2
-  Op2 op@Add a1 a2 -> Op2 op a1' a2' where (a1',a2') = order (a1,a2)
-  Op2 op@Xor a1 a2 -> Op2 op a1' a2' where (a1',a2') = order (a1,a2)
-
-  where order (a1,a2) = if a1 < a2 then (a1,a2) else (a2,a1)
+makeSem :: Name -> Oper -> Sem
+makeSem name oper = Sem { name, operM = Just oper }
 
 ----------------------------------------------------------------------
 -- Semantic state (map from Reg)
@@ -94,8 +88,7 @@ findSemState SS{env} name1 =
   [ reg | (reg,Sem{name}) <- Map.toList env, name == name1 ]
 
 findSemOper :: SemState -> Oper -> Maybe Name
-findSemOper SS{env} oper1 = do
-  let operK = canonicaliseForm oper1 -- TODO no
+findSemOper SS{env} operK = do
   case [ name | (_,Sem{name,operM=Just oper}) <- Map.toList env, oper == operK ] of
     [] -> Nothing
     name:_ -> Just name

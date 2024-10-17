@@ -5,7 +5,9 @@ module Codegen
 import Asm (Asm(..))
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),transferSemantics,computeSemantics)
 import Language (Form(..),Op2(..),Op1(..))
-import Semantics (Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem)
+import Semantics (Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper)
+
+import qualified Semantics as S
 
 ----------------------------------------------------------------------
 -- instruction selection and code generation
@@ -18,15 +20,25 @@ preamble = do
 
 type GenX = Form Arg -> Asm Arg
 
+-- Form to Oper
+canonicaliseForm :: Form Arg -> Oper
+canonicaliseForm = \case
+  Num n -> S.Num n
+  Op1 Asl a1 -> S.Asl a1
+  Op2 Sub a1 a2 -> S.Sub a1 a2
+  Op2 Add a1 a2 -> S.Add a1' a2' where (a1',a2') = order (a1,a2)
+  Op2 Xor a1 a2 -> S.Xor a1' a2' where (a1',a2') = order (a1,a2)
+  where order (a1,a2) = if a1 < a2 then (a1,a2) else (a2,a1)
+
 codegen :: GenX
-codegen f = do
-  let oper = f
+codegen form = do
+  let oper = canonicaliseForm form
   xm <- FindOper oper
   case xm of
     Just name -> pure (Name name)
-    Nothing -> codegen1 (Down f) f
+    Nothing -> codegen1 (Down oper) form
 
-data Down = Down (Form Arg)
+data Down = Down (Oper)
 
 type Gen = Down -> Form Arg -> Asm Arg
 
