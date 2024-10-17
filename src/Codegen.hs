@@ -4,10 +4,7 @@ module Codegen
 
 import Asm (Asm(..))
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),transferSemantics,computeSemantics)
-import Language (Form(..),Op2(..),Op1(..))
-import Semantics (Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper)
-
-import qualified Semantics as S
+import Semantics (Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..))
 
 ----------------------------------------------------------------------
 -- instruction selection and code generation
@@ -18,29 +15,16 @@ preamble = do
   perhaps spillX
   perhaps spillY
 
-type GenX = Form Arg -> Asm Arg
-
--- Form to Oper
-canonicaliseForm :: Form Arg -> Oper
-canonicaliseForm = \case
-  Num n -> S.Num n
-  Op1 Asl a1 -> S.Asl a1
-  Op2 Sub a1 a2 -> S.Sub a1 a2
-  Op2 Add a1 a2 -> S.Add a1' a2' where (a1',a2') = order (a1,a2)
-  Op2 Xor a1 a2 -> S.Xor a1' a2' where (a1',a2') = order (a1,a2)
-  where order (a1,a2) = if a1 < a2 then (a1,a2) else (a2,a1)
-
-codegen :: GenX
-codegen form = do
-  let oper = canonicaliseForm form
+codegen :: Oper -> Asm Arg
+codegen oper = do
   xm <- FindOper oper
   case xm of
     Just name -> pure (Name name)
-    Nothing -> codegen1 (Down oper) form
+    Nothing -> codegen1 (Down oper) oper
 
 data Down = Down (Oper)
 
-type Gen = Down -> Form Arg -> Asm Arg
+type Gen = Down -> Oper -> Asm Arg
 
 codegen1 :: Gen
 codegen1 = select
@@ -102,12 +86,12 @@ store target = \case
 
 doublingA :: Gen
 doublingA = \e -> \case
-  Op1 Asl arg -> do loadA arg; comp e Asla
+  Asl arg -> do loadA arg; comp e Asla
   _ -> Nope
 
 addition :: Gen
 addition = \e -> \case
-  Op2 Add arg1 arg2 -> do
+  Add arg1 arg2 -> do
     b1 <- inAcc arg1
     b2 <- inAcc arg2
     if b1 && b2
@@ -128,7 +112,7 @@ addIntoA e = \case
 
 subtraction :: Gen
 subtraction = \e -> \case
-  Op2 Sub arg1 arg2 -> do
+  Sub arg1 arg2 -> do
     do loadA arg1; subIntoA e arg2
   _ ->
     Nope
@@ -145,7 +129,7 @@ subIntoA e = \case
 
 xor :: Gen
 xor = \e -> \case
-  Op2 Xor arg1 arg2 ->
+  Xor arg1 arg2 ->
     commutativeBinOp (eorIntoA e) arg1 arg2
   _ ->
     Nope
@@ -178,25 +162,25 @@ commutativeBinOp doOpInA arg1 arg2 = do
 
 incrementX :: Gen
 incrementX = \e -> \case
-  Op2 Add arg (Imm 1) -> do loadX arg; comp e Inx
-  Op2 Add (Imm 1) arg -> do loadX arg; comp e Inx
+  Add arg (Imm 1) -> do loadX arg; comp e Inx
+  Add (Imm 1) arg -> do loadX arg; comp e Inx
   _ -> Nope
 
 incrementY :: Gen
 incrementY = \e -> \case
-  Op2 Add arg (Imm 1) -> do loadY arg; comp e Iny
-  Op2 Add (Imm 1) arg -> do loadY arg; comp e Iny
+  Add arg (Imm 1) -> do loadY arg; comp e Iny
+  Add (Imm 1) arg -> do loadY arg; comp e Iny
   _ -> Nope
 
 incrementZ :: Gen
 incrementZ e = \case
-  Op2 Add arg (Imm 1) -> do z <- inZP arg; comp e (Incz z)
-  Op2 Add (Imm 1) arg -> do z <- inZP arg; comp e (Incz z)
+  Add arg (Imm 1) -> do z <- inZP arg; comp e (Incz z)
+  Add (Imm 1) arg -> do z <- inZP arg; comp e (Incz z)
   _ -> Nope
 
 doublingZ :: Gen
 doublingZ = \e ->  \case
-  Op1 Asl arg -> do z <- inZP arg; comp e (Aslz z)
+  Asl arg -> do z <- inZP arg; comp e (Aslz z)
   _ -> Nope
 
 inZP :: Arg -> Asm ZeroPage
