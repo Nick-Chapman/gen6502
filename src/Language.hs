@@ -1,5 +1,5 @@
 module Language
-  ( Exp(..),Form(..),Op1(..), Op2(..), Var
+  ( Exp(..),Form(..),Op1(..), Op2(..), Var, Pred(..)
   , EvalEnv, eval
   ) where
 
@@ -14,7 +14,10 @@ type Byte = Word8
 ----------------------------------------------------------------------
 -- exp
 
-data Exp = Form (Form Exp) | Var Var | Let Var Exp Exp
+data Exp = Form (Form Exp) | Var Var | Let Var Exp Exp | If Pred Exp Exp
+  deriving (Eq)
+
+data Pred = Equal Exp Exp
   deriving (Eq)
 
 data Form e = Num Byte | Op2 Op2 e e | Op1 Op1 e
@@ -37,6 +40,7 @@ eval :: EvalEnv -> Exp -> Byte
 eval ee = \case
   Var x -> look "eval" ee x
   Let x rhs body -> eval (extend ee x (eval ee rhs)) body
+  If pred e1 e2 -> eval ee (if evalP ee pred then e1 else e2)
   Form form ->
     case form of
       Num n -> n
@@ -45,14 +49,23 @@ eval ee = \case
       Op2 Sub exp1 exp2 -> eval ee exp1 - eval ee exp2
       Op2 Xor exp1 exp2 -> eval ee exp1 `xor` eval ee exp2
 
+evalP :: EvalEnv -> Pred -> Bool
+evalP ee = \case
+  Equal e1 e2 -> eval ee e1 == eval ee e2
+
 ----------------------------------------------------------------------
 -- show
 
 instance Show Exp where
   show = \case
     Let x rhs body -> printf "(let %s = %s in %s)" x (show rhs) (show body)
+    If p e1 e2 -> printf "(if %s then %s else %s)" (show p) (show e1) (show e2)
     Form form -> show form
     Var x -> x
+
+instance Show Pred where
+  show = \case
+    Equal e1 e2 -> printf "(%s == %s)" (show e1) (show e2)
 
 instance Show a => Show (Form a) where
   show = \case

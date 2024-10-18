@@ -1,10 +1,54 @@
 module Codegen
   ( preamble, codegen, assign, Reg, Name, Arg(..)
+  , codegenPred, codegenBranch
   ) where
 
+import Prelude hiding (exp,compare)
 import Asm (Asm(..))
-import Instruction (Instruction(..),ITransfer(..),ICompute(..),transferSemantics,computeSemantics)
+import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
 import Semantics (Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..))
+
+import Semantics (Arg1(..),Pred(..),makeSem1,Flag(..))
+--import Instruction
+
+----------------------------------------------------------------------
+-- predicates
+
+-- TODO: check if alreay computed
+codegenPred :: Pred -> Asm Arg1
+codegenPred p =
+  -- TODO: select for diff predictes here
+  cmp p p
+
+
+cmp :: Pred -> Pred -> Asm Arg1
+cmp p = \case
+  Equal arg1 arg2 -> do
+    do loadA arg1; cmpIntoA p arg2
+--  _ ->
+--    Nope
+
+cmpIntoA :: Pred -> Arg -> Asm Arg1
+cmpIntoA p = \case
+  Imm imm -> do compare p (Cmpi imm)
+  Name name -> do
+    Located{z} <- locations name
+    -- only location: Z (not A,X,Y)
+    case z of
+      Just z -> do compare p (Cmpz z)
+      Nothing -> Nope
+
+
+codegenBranch :: Arg1 -> Asm Flag
+codegenBranch _ =
+  -- This needs to find out which flag (if any) is holding the compute Arg1 predicate
+  -- But current we have only one flag
+  -- and we are not tracking it yet!
+  -- so lets just return it, and have emulation show when this is wrong
+  --undefined
+  pure FlagZ
+
+
 
 ----------------------------------------------------------------------
 -- instruction selection and code generation
@@ -86,7 +130,7 @@ store target = \case
 
 doublingA :: Gen
 doublingA = \e -> \case
-  Asl arg -> do loadA arg; comp e Asla
+  Asl arg -> do loadA arg; compute e Asla
   _ -> Nope
 
 addition :: Gen
@@ -95,19 +139,19 @@ addition = \e -> \case
     b1 <- inAcc arg1
     b2 <- inAcc arg2
     if b1 && b2
-    then comp e (Asla)
+    then compute e (Asla)
     else commutativeBinOp (addIntoA e) arg1 arg2
   _ ->
     Nope
 
 addIntoA :: Down -> Arg -> Asm Arg
 addIntoA e = \case
-  Imm imm -> do clc; comp e (Adci imm)
+  Imm imm -> do clc; compute e (Adci imm)
   Name name -> do
     Located{z} <- locations name
     -- only location: Z (not A,X,Y)
     case z of
-      Just z -> do clc; comp e (Adcz z)
+      Just z -> do clc; compute e (Adcz z)
       Nothing -> Nope
 
 subtraction :: Gen
@@ -119,12 +163,12 @@ subtraction = \e -> \case
 
 subIntoA :: Down -> Arg -> Asm Arg
 subIntoA e = \case
-  Imm imm -> do sec; comp e (Sbci imm)
+  Imm imm -> do sec; compute e (Sbci imm)
   Name name -> do
     Located{z} <- locations name
     -- only location: Z (not A,X,Y)
     case z of
-      Just z -> do sec; comp e (Sbcz z)
+      Just z -> do sec; compute e (Sbcz z)
       Nothing -> Nope
 
 xor :: Gen
@@ -136,12 +180,12 @@ xor = \e -> \case
 
 eorIntoA :: Down -> Arg -> Asm Arg
 eorIntoA e = \case
-  Imm imm -> do comp e (Eori imm)
+  Imm imm -> do compute e (Eori imm)
   Name name -> do
     Located{z} <- locations name
     -- only location: Z (not A,X,Y)
     case z of
-      Just z -> do comp e (Eorz z)
+      Just z -> do compute e (Eorz z)
       Nothing -> Nope
 
 
@@ -162,25 +206,25 @@ commutativeBinOp doOpInA arg1 arg2 = do
 
 incrementX :: Gen
 incrementX = \e -> \case
-  Add arg (Imm 1) -> do loadX arg; comp e Inx
-  Add (Imm 1) arg -> do loadX arg; comp e Inx
+  Add arg (Imm 1) -> do loadX arg; compute e Inx
+  Add (Imm 1) arg -> do loadX arg; compute e Inx
   _ -> Nope
 
 incrementY :: Gen
 incrementY = \e -> \case
-  Add arg (Imm 1) -> do loadY arg; comp e Iny
-  Add (Imm 1) arg -> do loadY arg; comp e Iny
+  Add arg (Imm 1) -> do loadY arg; compute e Iny
+  Add (Imm 1) arg -> do loadY arg; compute e Iny
   _ -> Nope
 
 incrementZ :: Gen
 incrementZ e = \case
-  Add arg (Imm 1) -> do z <- inZP arg; comp e (Incz z)
-  Add (Imm 1) arg -> do z <- inZP arg; comp e (Incz z)
+  Add arg (Imm 1) -> do z <- inZP arg; compute e (Incz z)
+  Add (Imm 1) arg -> do z <- inZP arg; compute e (Incz z)
   _ -> Nope
 
 doublingZ :: Gen
 doublingZ = \e ->  \case
-  Asl arg -> do z <- inZP arg; comp e (Aslz z)
+  Asl arg -> do z <- inZP arg; compute e (Aslz z)
   _ -> Nope
 
 inZP :: Arg -> Asm ZeroPage
@@ -284,12 +328,19 @@ inAcc = \case
 ----------------------------------------------------------------------
 -- generate code with computation effect
 
-comp :: Down -> ICompute -> Asm Arg
-comp (Down form) i = do
+compute :: Down -> ICompute -> Asm Arg
+compute (Down form) i = do
   name <- FreshName
   let sem = makeSem name form
-  Emit (Comp i) (computeSemantics sem i)
+  Emit (Compute i) (computeSemantics sem i)
   pure (Name name)
+
+compare :: Pred -> ICompare -> Asm Arg1
+compare p i = do
+  name <- FreshName
+  let sem1 = makeSem1 name p
+  Emit (Compare i) (compareSemantics sem1 i)
+  pure (Name1 name)
 
 ----------------------------------------------------------------------
 -- Located

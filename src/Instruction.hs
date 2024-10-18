@@ -1,17 +1,21 @@
 module Instruction
-  ( Code, Instruction(..), ITransfer(..), ICompute(..)
-  , transferSemantics, computeSemantics
+  ( Code, Instruction(..), ITransfer(..), ICompute(..), ICompare(..)
+  , transferSemantics, computeSemantics, compareSemantics
   ) where
 
-import Semantics (Immediate(..),ZeroPage(..),Semantics,Sem,transfer,overwrite,overwriteI,Reg(..))
+import Semantics (Immediate(..),ZeroPage(..),Semantics,Sem,transfer,overwrite,overwriteI,noSemantics,Reg(..))
 import Text.Printf (printf)
+
+import Semantics (Sem1)
 
 ----------------------------------------------------------------------
 -- instructions
 
 type Code = [Instruction]
 
-data Instruction = Tx ITransfer | Comp ICompute | Clc | Sec
+data Instruction = Tx ITransfer | Compute ICompute | Compare ICompare | Clc | Sec
+  | Branch -- TODO need to know what instruction/condition we are branching on
+    Code Code
   deriving (Eq,Ord)
 
 data ITransfer
@@ -25,16 +29,18 @@ data ITransfer
   deriving (Eq,Ord)
 
 data ICompute
-  = Adcz ZeroPage
-  | Adci Immediate
-  | Sbcz ZeroPage
-  | Sbci Immediate
-  | Eorz ZeroPage
-  | Eori Immediate
+  = Adcz ZeroPage | Adci Immediate
+  | Sbcz ZeroPage | Sbci Immediate
+  | Eorz ZeroPage | Eori Immediate
+
   | Inx | Iny
   | Incz ZeroPage
   | Asla
   | Aslz ZeroPage
+  deriving (Eq,Ord)
+
+data ICompare
+  = Cmpz ZeroPage | Cmpi Immediate
   deriving (Eq,Ord)
 
 ----------------------------------------------------------------------
@@ -70,15 +76,22 @@ computeSemantics sem = \case
   Asla -> overwrite sem RegA
   Aslz z -> overwrite sem (ZP z)
 
+compareSemantics :: Sem1 -> ICompare -> Semantics
+compareSemantics _sem1 = \case -- TODO
+  Cmpz{} -> noSemantics -- undefined sem1
+  Cmpi{} -> noSemantics --undefined
+
 ----------------------------------------------------------------------
 -- show instruction
 
 instance Show Instruction where
   show = \case
     Tx i -> show i
-    Comp i -> show i
+    Compute i -> show i
+    Compare i -> show i
     Clc -> "clc"
     Sec -> "sec"
+    Branch xs1 xs2 -> printf "b? %s %s" (show xs1) (show xs2)
 
 instance Show ITransfer where
   show = \case
@@ -109,6 +122,12 @@ instance Show ICompute where
     Eori a -> oneArg "eor" a
     Eorz a -> oneArg "eor" a
     Incz a -> oneArg "inc" a
+
+instance Show ICompare where
+  show = \case
+    Cmpi a -> oneArg "cmp" a
+    Cmpz a -> oneArg "cmp" a
+
 
 oneArg :: Show a => String -> a -> String
 oneArg name x = printf "%s %s" name (show x)

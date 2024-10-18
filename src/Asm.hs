@@ -8,6 +8,9 @@ import Data.List (sortBy)
 import Instruction (Code,Instruction)
 import Semantics (ZeroPage,Semantics,SemState,Reg,findSemState,findSemOper,Name,getFreshName,Oper)
 
+import Semantics (Flag)
+import qualified Instruction as I
+
 import qualified Cost
 
 instance Functor Asm where fmap = liftM
@@ -25,6 +28,7 @@ data Asm a where
   FindOper :: Oper -> Asm (Maybe Name)
   FindName :: Name -> Asm [Reg]
   Print :: String -> Asm ()
+  Branch :: Flag -> Asm a -> Asm a -> Asm a
 
 type CostOrdering = Cost -> Cost -> Ordering
 
@@ -101,6 +105,17 @@ runAsm costOrdering temps0 ss0 asm0 = do
       Print mes -> do
         print mes
         pure [ ([],zero,s,()) ]
+
+      -- TODO: need to push continuations through branch!
+      Branch _ignored_flag m1 m2 -> do
+        xs1 <- loop s m1
+        xs2 <- loop s m2
+        let
+          merged =
+            [([I.Branch c1 c2],q1+q2,s,a) -- how combine costs?
+            | (c1,q1,s,a) <- xs1
+            , (c2,q2,_s,_b) <- xs2] -- state?? TODO -- lost b!
+        pure merged
 
 
 data State = State { ss :: SemState, temps :: Temps }

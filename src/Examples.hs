@@ -1,6 +1,6 @@
 module Examples (examples) where
 
-import Language (Var,Exp(..),Form(..),Op1(..),Op2(..))
+import Language (Var,Exp(..),Form(..),Op1(..),Op2(..),Pred(..))
 
 examples :: [Exp]
 examples =
@@ -122,9 +122,12 @@ examples =
   , xor (add x y) (add y x) -- semantic CSE
 
   , let_ "xy" (add x y) (xor (var "xy") (var "xy"))
+
+  -- , _ifExample1
   ]
 
   where
+    _ifExample1 = If (Equal x y) z z2
 
     num n = Form (Num n)
     var x = Var x

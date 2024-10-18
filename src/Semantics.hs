@@ -4,6 +4,8 @@ module Semantics
   , Name, Arg(..), Oper(..), Sem, makeSem
   , Semantics, noSemantics, transfer, overwrite, overwriteI
   , SemState, initSS, getFreshName, findSemState, findSemOper
+
+  , Arg1(..), Pred(..), makeSem1,Sem1,Flag(..)
   ) where
 
 import Data.Map (Map)
@@ -13,6 +15,18 @@ import Util (look,extend)
 import qualified Data.Map as Map
 
 type Byte = Word8
+
+
+data Arg1 = Name1 Name -- = Yes | No | Name1 Name1
+  deriving (Eq,Ord)
+
+data Pred = Equal Arg Arg
+  deriving (Eq)
+
+type Oper1 = Pred
+
+
+data Flag = FlagZ -- 1bit version of Reg
 
 ----------------------------------------------------------------------
 -- Semantic values
@@ -39,6 +53,7 @@ data Oper
   deriving (Eq,Show)
 
 data Sem = Sem { name :: Name , operM :: Maybe Oper} deriving (Eq)
+data Sem1 = Sem1 { name :: Name , operM :: Maybe Oper1} deriving (Eq)
 
 instance Show Sem where
   show Sem { name, operM } =
@@ -49,6 +64,9 @@ instance Show Sem where
 
 makeSem :: Name -> Oper -> Sem
 makeSem name oper = Sem { name, operM = Just oper }
+
+makeSem1 :: Name -> Oper1 -> Sem1
+makeSem1 name oper = Sem1 { name, operM = Just oper }
 
 ----------------------------------------------------------------------
 -- Semantic state (map from Reg)

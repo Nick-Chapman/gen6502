@@ -5,7 +5,7 @@ module Emulate
 import Data.Bits (xor)
 import Data.Map (Map)
 import Data.Word (Word8)
-import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..))
+import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
 import Language (Var,EvalEnv)
 import Semantics (Reg(..),Immediate(..))
 import Util (look,extend)
@@ -64,7 +64,7 @@ step ms@MS{m} = do
         Sta z -> up (ZP z) (get a)
         Stx z -> up (ZP z) (get x)
         Sty z -> up (ZP z) (get y)
-    Comp i ->
+    Compute i ->
       case i of
         -- TODO: adc/sbc should read/set carry flag
         Adci (Immediate b) -> up a (get a + b)
@@ -78,3 +78,11 @@ step ms@MS{m} = do
         Incz z -> up (ZP z) (get (ZP z) + 1)
         Asla -> up a (2 * get a)
         Aslz z -> up (ZP z) (2 * get (ZP z))
+    Compare i ->
+      case i of
+        Cmpz{} -> ms -- TODO: need to track flag values
+        Cmpi{} -> ms
+    Branch _ _ ->
+      -- TODO need to look at flag value to see where to go
+      ms -- but lest just stop. assume nothing after us
+      --undefined

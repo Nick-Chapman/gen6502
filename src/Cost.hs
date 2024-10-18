@@ -2,7 +2,7 @@ module Cost
   ( Cost, lessSpace, lessTime, zero, add, cost,
   ) where
 
-import Instruction (Instruction(..),ITransfer(..),ICompute(..))
+import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
 import Text.Printf(printf)
 
 data Cost = Cost { space :: Int, time :: Int } deriving Eq
@@ -46,7 +46,7 @@ space_time = \case
       Sta{} -> (2,3)
       Stx{} -> (2,3)
       Sty{} -> (2,3)
-  Comp i ->
+  Compute i ->
     case i of
       Adci{} -> (2,2)
       Sbci{} -> (2,2)
@@ -59,3 +59,9 @@ space_time = \case
       Incz{} -> (2,5)
       Asla -> (1,2)
       Aslz{} -> (2,5)
+  Compare i ->
+    case i of
+      Cmpi{} -> (2,2)
+      Cmpz{} -> (2,3)
+  Branch{} ->
+    undefined
