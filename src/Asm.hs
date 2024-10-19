@@ -1,15 +1,12 @@
 module Asm
-  ( Asm(..), runAsm, Temps(..), Cost
+  ( Asm(..), runAsm, Temps(..), Cost,
   ) where
 
 import Control.Monad (ap,liftM)
 import Cost (Cost,cost)
 import Data.List (sortBy)
 import Instruction (Code,Instruction)
-import Semantics (ZeroPage,Semantics,SemState,Reg,findSemState,findSemOper,Name,getFreshName,Oper)
-
-import Semantics (Flag)
-import qualified Instruction as I
+import Semantics (ZeroPage,SemState,Flag)
 
 import qualified Cost
 
@@ -23,11 +20,9 @@ data Asm a where
   Alt :: Asm a -> Asm a -> Asm a
   Nope :: Asm a
   FreshTemp :: Asm ZeroPage
-  FreshName :: Asm Name
-  Emit :: Instruction -> Semantics -> Asm ()
-  FindOper :: Oper -> Asm (Maybe Name)
-  FindName :: Name -> Asm [Reg]
-  Print :: String -> Asm ()
+  Emit :: Instruction -> Asm ()
+  Query :: Asm SemState
+  Update :: (SemState -> (a,SemState)) -> Asm a
   Branch :: Flag -> Asm a -> Asm a -> Asm a
 
 type CostOrdering = Cost -> Cost -> Ordering
@@ -85,37 +80,18 @@ runAsm costOrdering temps0 ss0 asm0 = do
             let s' = s { temps = Temps zs }
             pure [([],zero,s',z)]
 
-      FreshName -> do
-        let (name,ss') = getFreshName ss
+      Emit instruction -> do
+        pure [ ([instruction], cost instruction, s, ()) ]
+
+      Query -> do
+        pure [ ([], zero, s, ss) ]
+
+      Update f -> do
+        let (x,ss') = f ss
         let s' = s { ss = ss' }
-        pure [([],zero,s',name)]
+        pure [ ([], zero, s', x) ]
 
-      FindOper oper -> do
-        let x = findSemOper ss oper
-        pure [([],zero,s,x)]
-
-      FindName name -> do
-        let regs = findSemState ss name
-        pure [([],zero,s,regs)]
-
-      Emit instruction semantics -> do
-        let s' = s { ss = semantics ss }
-        pure [ ([instruction], cost instruction, s', ()) ]
-
-      Print mes -> do
-        print mes
-        pure [ ([],zero,s,()) ]
-
-      -- TODO: need to push continuations through branch!
-      Branch _ignored_flag m1 m2 -> do
-        xs1 <- loop s m1
-        xs2 <- loop s m2
-        let
-          merged =
-            [([I.Branch c1 c2],q1+q2,s,a) -- how combine costs?
-            | (c1,q1,s,a) <- xs1
-            , (c2,q2,_s,_b) <- xs2] -- state?? TODO -- lost b!
-        pure merged
+      Branch{} -> undefined
 
 
 data State = State { ss :: SemState, temps :: Temps }

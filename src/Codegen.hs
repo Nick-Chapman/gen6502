@@ -6,7 +6,7 @@ module Codegen
 import Prelude hiding (exp,compare)
 import Asm (Asm(..))
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
-import Semantics (Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..))
+import Semantics (Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemOper,findSemState)
 
 import Semantics (Arg1(..),Pred(..),makeSem1,Flag(..))
 --import Instruction
@@ -61,7 +61,8 @@ preamble = do
 
 codegen :: Oper -> Asm Arg
 codegen oper = do
-  xm <- FindOper oper
+  ss <- Query
+  let xm = findSemOper ss oper
   case xm of
     Just name -> pure (Name name)
     Nothing -> codegen1 (Down oper) oper
@@ -287,10 +288,10 @@ loadY = \case
               Nope
 
 clc :: Asm ()
-clc = Emit Clc noSemantics
+clc = emitWithSemantics Clc noSemantics
 
 sec :: Asm ()
-sec = Emit Sec noSemantics
+sec = emitWithSemantics Sec noSemantics
 
 ----------------------------------------------------------------------
 -- spilling...
@@ -311,7 +312,7 @@ spillY = do
   trans (Sty z)
 
 trans :: ITransfer -> Asm ()
-trans i = Emit (Tx i) (transferSemantics i)
+trans i = emitWithSemantics (Tx i) (transferSemantics i)
 
 alternatives :: [Asm a] -> Asm a
 alternatives = \case
@@ -330,24 +331,33 @@ inAcc = \case
 
 compute :: Down -> ICompute -> Asm Arg
 compute (Down form) i = do
-  name <- FreshName
+  name <- freshName
   let sem = makeSem name form
-  Emit (Compute i) (computeSemantics sem i)
+  emitWithSemantics (Compute i) (computeSemantics sem i)
   pure (Name name)
 
 compare :: Pred -> ICompare -> Asm Arg1
 compare p i = do
-  name <- FreshName
+  name <- freshName
   let sem1 = makeSem1 name p
-  Emit (Compare i) (compareSemantics sem1 i)
+  emitWithSemantics (Compare i) (compareSemantics sem1 i)
   pure (Name1 name)
+
+emitWithSemantics :: Instruction -> Semantics -> Asm ()
+emitWithSemantics i semantics = do
+  Emit i
+  Update $ \ss -> ((), semantics ss)
+
+freshName :: Asm Name
+freshName = Update getFreshName
 
 ----------------------------------------------------------------------
 -- Located
 
 locations :: Name -> Asm Located
 locations name = do
-  xs <- FindName name
+  ss <- Query
+  let xs = findSemState ss name
   pure (classifyRegs xs)
 
 data Located = Located { a,x,y::Bool,z::Maybe ZeroPage } deriving (Eq)

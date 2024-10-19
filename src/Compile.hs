@@ -7,7 +7,6 @@ import Codegen (preamble,codegen,assign,Reg,Arg)
 import Semantics (Arg1)
 import Data.Map (Map)
 import Language (Exp(..),Form(..),Op2(..),Op1(..),Var,Pred(..))
-import Text.Printf (printf)
 import Util (look,extend)
 import qualified Semantics as S
 
@@ -31,7 +30,6 @@ compileP env = \case
 
 compile :: Env -> Exp -> Asm Arg
 compile env exp = do
-  let _ = Print (printf "compile: %s" (show exp))
   case exp of
     Var x -> pure (look "compile" env x)
 
