@@ -27,11 +27,10 @@ data Asm a where
 
 type CostOrdering = Cost -> Cost -> Ordering
 
-runAsm :: CostOrdering -> Temps -> SemState -> Asm a -> IO [(Code,Cost,a)]
+runAsm :: CostOrdering -> Temps -> SemState -> Asm a -> [(Code,Cost,a)]
 runAsm costOrdering temps0 ss0 asm0 = do
 
-  xs <- loop s0 asm0
-  pure (sortByCost [ (code,q,a) | (code,q,_s,a) <- xs ])
+  sortByCost [ (code,q,a) | (code,q,_s,a) <- run s0 asm0 ]
   where
     doSort = True
     -- TODO: produce results in cost order, rather than post-sorting
@@ -49,47 +48,37 @@ runAsm costOrdering temps0 ss0 asm0 = do
     (+) = Cost.add
     zero = Cost.zero
 
-    loop :: State -> Asm a -> IO [(Code,Cost,State,a)]
-    loop s@State{ss,temps} = \case
-      Ret a -> pure [([],zero,s,a)]
+    run :: State -> Asm a -> [(Code,Cost,State,a)]
+    run s@State{ss,temps} = \case
+      Ret a -> [([],zero,s,a)]
 
       Bind m f -> do
-        xs1 <- loop s m
---        [(c1++c2,q1+q2,s,b) | (c1,q1,s,a) <- loop s m
---                            , (c2,q2,s,b) <- loop s (f a) ]
-
-        xss <- sequence [ do
-              xs2 <- loop s (f a)
-              pure [ (c1++c2,q1+q2,s,b) | (c2,q2,s,b) <- xs2 ]
-          | (c1,q1,s,a) <- xs1
-          ]
-        pure (concat xss)
+        [(c1++c2,q1+q2,s,b) | (c1,q1,s,a) <- run s m
+                            , (c2,q2,s,b) <- run s (f a) ]
 
       Alt m1 m2 -> do
-        rs1 <- loop s m1
-        rs2 <- loop s m2
-        pure (rs1 ++ rs2)
+        run s m1 ++ run s m2
 
       Nope -> do
-        pure []
+        []
 
       FreshTemp -> do
         case temps of
           Temps [] -> error "run out of temps"
           Temps (z:zs) -> do
             let s' = s { temps = Temps zs }
-            pure [([],zero,s',z)]
+            [([],zero,s',z)]
 
       Emit instruction -> do
-        pure [ ([instruction], cost instruction, s, ()) ]
+        [ ([instruction], cost instruction, s, ()) ]
 
       Query -> do
-        pure [ ([], zero, s, ss) ]
+        [ ([], zero, s, ss) ]
 
       Update f -> do
         let (x,ss') = f ss
         let s' = s { ss = ss' }
-        pure [ ([], zero, s', x) ]
+        [ ([], zero, s', x) ]
 
       Branch{} -> undefined
 

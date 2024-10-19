@@ -24,7 +24,7 @@ compile mu exp target = do
   let env = Map.fromList [ (x,Name name) | (x,name) <- zip vars names ]
 
   let temps = Temps [ZeroPage n | n <- [7..19]]
-  xs <- runAsm Cost.lessTime temps ss (compileTarget env exp target)
+  let xs = runAsm Cost.lessTime temps ss (compileTarget env exp target)
   pure [ (cost,code) | (code,cost,()) <- xs ]
 
 runTests :: IO ()
