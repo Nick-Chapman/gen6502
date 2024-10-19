@@ -4,7 +4,8 @@ import Asm (runAsm,Temps(..))
 import Codegen (Arg(..))
 import Compile (compileTarget)
 import Control.Monad (when)
-import Cost (Cost)
+import Cost (Cost,cost)
+import Data.List (sortBy)
 import Emulate (EmuEnv,initMS,emulate)
 import Examples (examples)
 import Instruction (Code)
@@ -16,16 +17,27 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 
 -- Sequence the Compilation and Asm generation of all instruction sequences.
-compile :: EmuEnv -> Exp -> Reg -> IO [(Cost,Code)]
+compile :: EmuEnv -> Exp -> Reg -> [(Cost,Code)]
 compile mu exp target = do
-
   let (vars,regs) = unzip (Map.toList mu)
   let (names,ss) = initSS regs
   let env = Map.fromList [ (x,Name name) | (x,name) <- zip vars names ]
-
   let temps = Temps [ZeroPage n | n <- [7..19]]
-  let xs = runAsm Cost.lessTime temps ss (compileTarget env exp target)
-  pure [ (cost,code) | (code,cost,()) <- xs ]
+  let asm = compileTarget env exp target
+  let xs = runAsm temps ss asm
+  orderByCost xs
+
+-- TODO: produce results in cost order, rather than post-sorting
+orderByCost :: [Code] -> [(Cost,Code)]
+orderByCost xs = do
+  sortByCost [ (costOfCode code, code) | code <- xs ]
+  where
+    costOfCode = foldl Cost.add Cost.zero . map cost
+    sortByCost =
+      sortBy (\(c1,code1) (c2,code2) ->
+                 case Cost.lessTime c1 c2 of
+                   EQ -> compare code1 code2 -- order determinism of tests
+                   x -> x)
 
 runTests :: IO ()
 runTests = do
@@ -60,7 +72,7 @@ run1 target mu ee (i,example) = do
   let eres = eval ee example
 
   -- Compile the example; generating all instruction sequences.
-  rs <- compile mu example target
+  let rs = compile mu example target
 
   -- Error if we dont have at least one sequence.
   if length rs == 0 then error "#results==0" else pure ()
