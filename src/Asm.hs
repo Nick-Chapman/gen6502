@@ -22,41 +22,44 @@ data Asm a where
   Branch :: Flag -> Asm a -> Asm a -> Asm a
 
 runAsm :: Temps -> SemState -> Asm () -> [Code]
-runAsm temps0 ss0 asm0 = [ code | (code,_s,()) <- run s0 asm0 ]
+runAsm temps0 ss0 asm0 = [ code | (code,_s,()) <- run asm0 q0 ]
   where
-    s0 = State { ss = ss0, temps = temps0 }
+    q0 = State { ss = ss0, temps = temps0 }
 
-    run :: State -> Asm a -> [(Code,State,a)]
-    run s@State{ss,temps} = \case
-      Ret a -> [([],s,a)]
+    run :: Asm a -> State -> [(Code,State,a)]
+    run = \case
+      Ret a -> \q -> [([],q,a)]
 
-      Bind m f -> do
-        [(c1++c2,s,b) | (c1,s,a) <- run s m
-                      , (c2,s,b) <- run s (f a) ]
+      Bind m g -> \q -> do
+        [(c1++c2,q,b) | (c1,q,a) <- run m q
+                      , (c2,q,b) <- run (g a) q ]
 
-      Alt m1 m2 -> do
-        run s m1 ++ run s m2
+      Alt m1 m2 -> \q -> do
+        run m1 q ++ run m2 q
 
-      Nope -> do
+      Nope -> \_q -> do
         []
 
-      FreshTemp -> do
+      FreshTemp -> \q -> do
+        let State{temps} = q
         case temps of
           Temps [] -> error "run out of temps"
           Temps (z:zs) -> do
-            let s' = s { temps = Temps zs }
-            [([],s',z)]
+            let q' = q { temps = Temps zs }
+            [([],q',z)]
 
-      Emit instruction -> do
-        [ ([instruction], s, ()) ]
+      Emit instruction -> \q -> do
+        [ ([instruction], q, ()) ]
 
-      Query -> do
-        [ ([], s, ss) ]
+      Query -> \q -> do
+        let State{ss} = q
+        [ ([], q, ss) ]
 
-      Update f -> do
+      Update f -> \q -> do
+        let State{ss} = q
         let (x,ss') = f ss
-        let s' = s { ss = ss' }
-        [ ([], s', x) ]
+        let q' = q { ss = ss' }
+        [ ([], q', x) ]
 
       Branch{} -> undefined
 
