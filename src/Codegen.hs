@@ -4,9 +4,9 @@ module Codegen
   ) where
 
 import Prelude hiding (exp,compare)
-import Asm (Asm(..))
+import Asm (AsmState(..),Asm(..))
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
-import Semantics (Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemOper,findSemState)
+import Semantics (SemState,Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemOper,findSemState)
 
 import Semantics (Arg1(..),Pred(..),makeSem1,Flag(..))
 --import Instruction
@@ -61,7 +61,7 @@ preamble = do
 
 codegen :: Oper -> Asm Arg
 codegen oper = do
-  ss <- Query
+  ss <- querySS
   let xm = findSemOper ss oper
   case xm of
     Just name -> pure (Name name)
@@ -298,17 +298,17 @@ sec = emitWithSemantics Sec noSemantics
 
 spillA :: Asm ()
 spillA = do
-  z <- FreshTemp
+  z <- freshTemp
   trans (Sta z)
 
 spillX :: Asm ()
 spillX = do
-  z <- FreshTemp
+  z <- freshTemp
   trans (Stx z)
 
 spillY :: Asm ()
 spillY = do
-  z <- FreshTemp
+  z <- freshTemp
   trans (Sty z)
 
 trans :: ITransfer -> Asm ()
@@ -346,17 +346,41 @@ compare p i = do
 emitWithSemantics :: Instruction -> Semantics -> Asm ()
 emitWithSemantics i semantics = do
   Emit i
-  Update $ \ss -> ((), semantics ss)
+  updateSS $ \ss -> ((), semantics ss)
 
 freshName :: Asm Name
-freshName = Update getFreshName
+freshName = updateSS getFreshName
+
+updateSS :: (SemState -> (a,SemState)) -> Asm a
+updateSS m =
+  Update (\s -> do
+             let AsmState {ss} = s
+             let (a,ss') = m ss
+             let s' = s { ss = ss' }
+             (a,s'))
+
+querySS :: Asm SemState
+querySS =
+  Update (\s -> do
+             let AsmState {ss} = s
+             (ss,s))
+
+freshTemp :: Asm ZeroPage
+freshTemp =
+  Update (\s -> do
+             let AsmState {temps} = s
+             case temps of
+               [] -> error "run out of temps"
+               (firstTemp:temps) -> do
+                 let s' = s { temps }
+                 (firstTemp, s'))
 
 ----------------------------------------------------------------------
 -- Located
 
 locations :: Name -> Asm Located
 locations name = do
-  ss <- Query
+  ss <- querySS
   let xs = findSemState ss name
   pure (classifyRegs xs)
 

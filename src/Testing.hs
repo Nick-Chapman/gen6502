@@ -1,6 +1,6 @@
 module Testing (runTests) where
 
-import Asm (runAsm,Temps(..))
+import Asm (runAsm,AsmState(..))
 import Codegen (Arg(..))
 import Compile (compileTarget)
 import Control.Monad (when)
@@ -22,9 +22,10 @@ compile mu exp target = do
   let (vars,regs) = unzip (Map.toList mu)
   let (names,ss) = initSS regs
   let env = Map.fromList [ (x,Name name) | (x,name) <- zip vars names ]
-  let temps = Temps [ZeroPage n | n <- [7..19]]
+  let temps = [ZeroPage n | n <- [7..19]]
   let asm = compileTarget env exp target
-  let xs = runAsm temps ss asm
+  let state = AsmState { ss, temps }
+  let xs = runAsm state asm
   orderByCost xs
 
 -- TODO: produce results in cost order, rather than post-sorting
