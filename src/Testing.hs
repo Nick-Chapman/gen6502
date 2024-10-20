@@ -4,7 +4,7 @@ import Asm (runAsm,AsmState(..))
 import Codegen (Arg(..))
 import Compile (compileTarget)
 import Control.Monad (when)
-import Cost (Cost,cost)
+import Cost (Cost,costOfCode,lessTime)
 import Data.List (sortBy)
 import Emulate (EmuEnv,initMS,emulate)
 import Examples (examples)
@@ -12,7 +12,6 @@ import Instruction (Code)
 import Language (Exp(..),EvalEnv,eval)
 import Semantics (Reg(..),ZeroPage(..),initSS)
 import Text.Printf (printf)
-import qualified Cost
 import qualified Data.List as List
 import qualified Data.Map as Map
 
@@ -33,10 +32,9 @@ orderByCost :: [Code] -> [(Cost,Code)]
 orderByCost xs = do
   sortByCost [ (costOfCode code, code) | code <- xs ]
   where
-    costOfCode = foldl Cost.add Cost.zero . map cost
     sortByCost =
       sortBy (\(c1,code1) (c2,code2) ->
-                 case Cost.lessTime c1 c2 of
+                 case lessTime c1 c2 of
                    EQ -> compare code1 code2 -- order determinism of tests
                    x -> x)
 

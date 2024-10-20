@@ -1,8 +1,8 @@
 module Cost
-  ( Cost, lessSpace, lessTime, zero, add, cost,
+  ( Cost, lessSpace, lessTime, zero, add, cost, costOfCode
   ) where
 
-import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
+import Instruction (Code(),Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
 import Text.Printf(printf)
 
 data Cost = Cost { space :: Int, time :: Int } deriving Eq
@@ -23,6 +23,9 @@ zero = Cost { space = 0, time = 0 }
 
 add :: Cost -> Cost -> Cost
 add (Cost {space=s1,time=t1}) (Cost {space=s2,time=t2}) = Cost { space = s1+s2, time = t1+t2 }
+
+costOfCode :: Code -> Cost
+costOfCode = foldl Cost.add Cost.zero . map cost
 
 cost :: Instruction -> Cost
 cost i = Cost { space, time } where (space,time) = space_time i
@@ -63,5 +66,9 @@ space_time = \case
     case i of
       Cmpi{} -> (2,2)
       Cmpz{} -> (2,3)
-  Branch{} ->
-    undefined
+  Branch code1 code2 -> do
+    let Cost{space=space1,time=time1} = costOfCode code1
+    let Cost{space=space2,time=time2} = costOfCode code2
+    let maxTime = max time1 time2 -- TODO track max and min & allow ordering to chosse
+    let _ = (2+space1+space2, maxTime)
+    (100,100)

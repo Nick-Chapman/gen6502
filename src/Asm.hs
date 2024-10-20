@@ -5,6 +5,7 @@ module Asm
 import Control.Monad (ap,liftM)
 import Instruction (Code,Instruction)
 import Semantics (ZeroPage,SemState,Flag)
+import qualified Instruction as I (Instruction(Branch))
 
 ----------------------------------------------------------------------
 -- AsmState
@@ -45,4 +46,9 @@ runAsm q0 asm0 = run asm0 q0 (\i _q () f -> i [] : f) []
         let (x,q') = m q
         s id q' x f
 
-      Branch _ m1 m2 -> undefined m1 m2
+      Branch _ m1 _ -> \q s f -> do
+        -- just do one side to start -- doesn't work. Branch is not managing to catch&embed its continuation code.
+        run m1 q (\i1 q a f -> do
+                    let i = I.Branch (i1 []) []
+                    s (i:) q a f
+                 ) f
