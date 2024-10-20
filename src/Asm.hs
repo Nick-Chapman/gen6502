@@ -27,22 +27,22 @@ data Asm a where
   Update :: (AsmState -> (a,AsmState)) -> Asm a
   Branch :: Flag -> Asm a -> Asm a -> Asm a
 
-type EQSF i q a r = [i] -> q -> ([i] -> q -> a -> r -> r) -> r -> r
+type QISF i q a r = q -> (([i] -> [i]) -> q -> a -> r -> r) -> r -> r
 
 runAsm :: AsmState -> Asm () -> [Code]
-runAsm q0 asm0 = run asm0 [] q0 (\is _q () f -> reverse is : f) []
+runAsm q0 asm0 = run asm0 q0 (\i _q () f -> i [] : f) []
   where
 
-    run :: Asm a -> EQSF Instruction AsmState a [Code]
+    run :: Asm a -> QISF Instruction AsmState a [Code]
     run = \case
-      Ret a -> \is q s f -> s is q a f
-      Bind m g -> \is q s f -> run m is q (\is q a f -> run (g a) is q s f) f
-      Alt m1 m2 -> \is q s f -> run m1 is q s (run m2 is q s f)
-      Nope -> \_is _q _s f -> f
-      Emit i -> \is q s f -> s (i:is) q () f
+      Emit i -> \q s f -> s (i:) q () f
+      Ret a -> \q s f -> s id q a f
+      Bind m g -> \q s f -> run m q (\i1 q a f -> run (g a) q (\i2 q b f -> s (i1.i2) q b f) f) f
+      Alt m1 m2 -> \q s f -> run m1 q s (run m2 q s f)
+      Nope -> \_q _s f -> f
 
-      Update m -> \is q s f -> do
+      Update m -> \q s f -> do
         let (x,q') = m q
-        s is q' x f
+        s id q' x f
 
-      Branch{} -> undefined
+      Branch _ m1 m2 -> undefined m1 m2
