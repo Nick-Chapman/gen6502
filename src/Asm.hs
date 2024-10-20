@@ -28,13 +28,13 @@ data Asm a where
   Update :: (AsmState -> (a,AsmState)) -> Asm a
   Branch :: Flag -> Asm a -> Asm a -> Asm a
 
-type QISF i q a r = q -> (([i] -> [i]) -> q -> a -> r -> r) -> r -> r
+type QISF q a r = q -> ((r -> r) -> q -> a -> [r] -> [r]) -> [r] -> [r]
 
 runAsm :: AsmState -> Asm () -> [Code]
 runAsm q0 asm0 = run asm0 q0 (\i _q () f -> i [] : f) []
   where
 
-    run :: Asm a -> QISF Instruction AsmState a [Code]
+    run :: Asm a -> QISF AsmState a Code
     run = \case
       Emit i -> \q s f -> s (i:) q () f
       Ret a -> \q s f -> s id q a f
@@ -46,9 +46,5 @@ runAsm q0 asm0 = run asm0 q0 (\i _q () f -> i [] : f) []
         let (x,q') = m q
         s id q' x f
 
-      Branch _ m1 _ -> \q s f -> do
-        -- just do one side to start -- doesn't work. Branch is not managing to catch&embed its continuation code.
-        run m1 q (\i1 q a f -> do
-                    let i = I.Branch (i1 []) []
-                    s (i:) q a f
-                 ) f
+      Branch _ m1 m2 -> \q s f -> do
+        [ I.Branch c1 c2 | c1 <- run m1 q s [], c2 <- run m2 q s [] ] : f

@@ -123,7 +123,7 @@ examples =
 
   , let_ "xy" (add x y) (xor (var "xy") (var "xy"))
 
-  -- , _ifExample1
+  , _ifExample1
   ]
 
   where

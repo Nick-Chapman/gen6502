@@ -331,3 +331,6 @@
 [105]example = (let xy = (x + y) in (xy ^ xy))
 {10/16}: [stx 7,tya,clc,adc 7,sta 8,eor 8] --> [A]
 {10/16}: [sty 7,txa,clc,adc 7,sta 8,eor 8] --> [A]
+
+[106]example = (if (x == y) then z else z2)
+{16/11}: [b? [sty 7,txa,cmp 7,lda 1] [sty 7,txa,cmp 7,lda 2]] --> [A]

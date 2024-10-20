@@ -70,5 +70,4 @@ space_time = \case
     let Cost{space=space1,time=time1} = costOfCode code1
     let Cost{space=space2,time=time2} = costOfCode code2
     let maxTime = max time1 time2 -- TODO track max and min & allow ordering to chosse
-    let _ = (2+space1+space2, maxTime)
-    (100,100)
+    (2+space1+space2, maxTime)

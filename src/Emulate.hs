@@ -16,11 +16,7 @@ type Byte = Word8
 type EmuEnv = Map Var Reg
 
 emulate :: MachineState -> Code -> Reg -> Byte
-emulate ms0 code locFinal = steps ms0 code
-  where
-    steps ms = \case
-      [] -> get_loc ms locFinal
-      i:is -> steps (step ms i) is
+emulate ms0 code locFinal = get_loc (steps ms0 code) locFinal
 
 ----------------------------------------------------------------------
 -- machine state
@@ -38,6 +34,11 @@ get_loc MS{m} loc = look "get_loc" m loc
 
 ----------------------------------------------------------------------
 -- step instruction
+
+steps :: MachineState -> Code -> MachineState
+steps ms = \case
+  [] -> ms
+  i:is -> steps (step ms i) is
 
 step :: MachineState -> Instruction -> MachineState
 step ms@MS{m} = do
@@ -82,7 +83,7 @@ step ms@MS{m} = do
       case i of
         Cmpz{} -> ms -- TODO: need to track flag values
         Cmpi{} -> ms
-    Branch _ _ ->
+    Branch _code1 code2 ->
       -- TODO need to look at flag value to see where to go
-      ms -- but lest just stop. assume nothing after us
-      --undefined
+      -- for now lets big 2nd alternative
+      steps ms code2
