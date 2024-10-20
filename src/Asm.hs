@@ -6,6 +6,21 @@ import Control.Monad (ap,liftM)
 import Instruction (Code,Instruction)
 import Semantics (ZeroPage,SemState,Flag)
 
+----------------------------------------------------------------------
+-- State
+
+data State = State { ss :: SemState, temps :: Temps }
+data Temps = Temps [ZeroPage]
+
+runAsm :: Temps -> SemState -> Asm () -> [Code] -- TODO: unfold this wrapper into calling code
+runAsm temps ss asm = runAsm' (makeState temps ss) asm
+
+makeState :: Temps -> SemState -> State
+makeState temps ss = State { ss, temps }
+
+----------------------------------------------------------------------
+-- Asm
+
 instance Functor Asm where fmap = liftM
 instance Applicative Asm where pure = Ret; (<*>) = ap
 instance Monad Asm where (>>=) = Bind
@@ -21,49 +36,36 @@ data Asm a where
   Update :: (SemState -> (a,SemState)) -> Asm a
   Branch :: Flag -> Asm a -> Asm a -> Asm a
 
-runAsm :: Temps -> SemState -> Asm () -> [Code]
-runAsm temps0 ss0 asm0 = [ code | (code,_s,()) <- run asm0 q0 ]
+type EQSF i q a r = [i] -> q -> ([i] -> q -> a -> r -> r) -> r -> r
+
+runAsm' :: State -> Asm () -> [Code]
+runAsm' q0 asm0 = run asm0 [] q0 (\is _q () f -> reverse is : f) []
   where
-    q0 = State { ss = ss0, temps = temps0 }
 
-    run :: Asm a -> State -> [(Code,State,a)]
+    run :: Asm a -> EQSF Instruction State a [Code]
     run = \case
-      Ret a -> \q -> [([],q,a)]
+      Ret a -> \is q s f -> s is q a f
+      Bind m g -> \is q s f -> run m is q (\is q a f -> run (g a) is q s f) f
+      Alt m1 m2 -> \is q s f -> run m1 is q s (run m2 is q s f)
+      Nope -> \_is _q _s f -> f
+      Emit i -> \is q s f -> s (i:is) q () f
 
-      Bind m g -> \q -> do
-        [(c1++c2,q,b) | (c1,q,a) <- run m q
-                      , (c2,q,b) <- run (g a) q ]
+      Query -> \is q s f -> do
+        let State{ss} = q
+        s is q ss f
 
-      Alt m1 m2 -> \q -> do
-        run m1 q ++ run m2 q
-
-      Nope -> \_q -> do
-        []
-
-      FreshTemp -> \q -> do
+      FreshTemp -> \is q s f -> do
         let State{temps} = q
         case temps of
           Temps [] -> error "run out of temps"
-          Temps (z:zs) -> do
-            let q' = q { temps = Temps zs }
-            [([],q',z)]
+          Temps (firstTemp:rest) -> do
+            let q' = q { temps = Temps rest }
+            s is q' firstTemp f
 
-      Emit instruction -> \q -> do
-        [ ([instruction], q, ()) ]
-
-      Query -> \q -> do
+      Update m -> \is q s f -> do
         let State{ss} = q
-        [ ([], q, ss) ]
-
-      Update f -> \q -> do
-        let State{ss} = q
-        let (x,ss') = f ss
+        let (x,ss') = m ss
         let q' = q { ss = ss' }
-        [ ([], q', x) ]
+        s is q' x f
 
       Branch{} -> undefined
-
-
-data State = State { ss :: SemState, temps :: Temps }
-
-data Temps = Temps [ZeroPage]
