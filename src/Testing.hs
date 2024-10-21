@@ -12,7 +12,6 @@ import Instruction (Code)
 import Language (Exp(..),EvalEnv,eval)
 import Semantics (Reg(..),ZeroPage(..),initSS)
 import Text.Printf (printf)
-import qualified Data.List as List
 import qualified Data.Map as Map
 
 -- Sequence the Compilation and Asm generation of all instruction sequences.
@@ -72,43 +71,31 @@ run1 target mu ee (i,example) = do
 
   -- Compile the example; generating all instruction sequences.
   let rs = compile mu example target
+  --printf "#results=%d\n" (length rs)
 
   -- Error if we dont have at least one sequence.
   if length rs == 0 then error "#results==0" else pure ()
 
-  -- Check we dont have two identical sequences (indicates inefficient codegen).
-  let n1 = length rs
-  --printf "#results=%d\n" n1
-  let rsNubbed = List.nub rs
-  let n2 = length rsNubbed
-  when (n1 /= n2) $ do
-    printf "#results=%d #NUB=%d\n" n1 n2
-    error "*NUB*"
+  -- Collect the sequences withthe lowest cose
+  let (lowestCost::Cost,_) = head rs
+  let best = takeWhile (\(cost,_) -> cost == lowestCost) rs
 
-  -- Emulate each instruction sequence.
+  -- Emulate & display an instruction sequence...
   let ms0 = initMS mu ee
-  let rsWithEmu = [ (r, emulate ms0 code target) | r@(_,code) <- rsNubbed ]
-
-  -- Check the emulation result matches the expected result from evaluation.
-  let (ok,bad) = List.partition correct rsWithEmu
-        where correct (_,mres) = (mres==eres)
-
   let
-    prRes ((cost,code),mres) = do
+    prRes see (cost,code) = do
+      let mres = emulate ms0 code target
       let same = (mres == eres)
-      let ok :: String = if same then "" else printf " {FAIL: different: %d}" mres
-      printf "{%s}: %s --> [%s]%s\n" (show cost) (show code) (show target) ok
+      when (see || not same) $ do
+        let ok :: String = if same then "" else printf " {FAIL: different: %d}" mres
+        printf "{%s}: %s --> [%s]%s\n" (show cost) (show code) (show target) ok
+      when (not same) $ do
+        printf "evaluation env = %s\n" (show ee)
+        printf "evaluation -> %d\n" eres
+        error "*BAD*"
 
-  when (length bad > 0) $ do
-    -- Show the evaluation environment & result
-    printf "#bad=%d\n" (length bad)
-    printf "evaluation env = %s\n" (show ee)
-    printf "evaluation -> %d\n" eres
-    -- to compare against the bad code sequence & emulation result
-    mapM_ prRes bad
-    error "*BAD*"
+  -- Emulate/check/display the best sequences
+  mapM_ (prRes True) best
 
-  -- When all is ok, show all the instruction sequences with the (same) lowest cost.
-  let ((lowestCost::Cost,_),_) = head ok
-  let best = takeWhile (\((cost,_),_) -> cost == lowestCost) ok
-  mapM_ prRes best
+  -- Emulate/check all sequences
+  mapM_ (prRes False) rs

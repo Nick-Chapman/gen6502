@@ -347,3 +347,9 @@
 
 [110]example = (((if (a == x) then a else x) + 5) << 1)
 {15/14}: [stx 7,cmp 7,b? [clc,adc #5,asl a] [txa,clc,adc #5,asl a]] --> [A]
+
+[111]example = (((if (a == x) then a else x) + 1) << 1)
+{13/12}: [stx 7,cmp 7,b? [clc,adc #1,asl a] [inx,txa,asl a]] --> [A]
+
+[112]example = ((((if (a == x) then a else x) + 5) << 1) << 1)
+{17/16}: [stx 7,cmp 7,b? [clc,adc #5,asl a,asl a] [txa,clc,adc #5,asl a,asl a]] --> [A]

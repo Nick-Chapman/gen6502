@@ -130,10 +130,9 @@ examples =
 
   , add (If (Equal a x) a x) (num 1)
   , asl (add (If (Equal a x) a x) (num 5))
-  -- , asl (asl (add (If (Equal a x) a x) (num 5))) -- few seconds delay
-
-  --, asl (add (If (Equal a x) a x) (num 1)) -- small delay
-  --, asl (asl (add (If (Equal a x) a x) (num 1))) -- spins fans; didn't wait long enough
+  , asl (add (If (Equal a x) a x) (num 1))
+  , asl (asl (add (If (Equal a x) a x) (num 5)))
+  -- , asl (asl (add (If (Equal a x) a x) (num 1)))
 
   ]
 
