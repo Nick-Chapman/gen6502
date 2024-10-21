@@ -333,4 +333,4 @@
 {10/16}: [sty 7,txa,clc,adc 7,sta 8,eor 8] --> [A]
 
 [106]example = (if (x == y) then z else z2)
-{16/11}: [b? [sty 7,txa,cmp 7,lda 1] [sty 7,txa,cmp 7,lda 2]] --> [A]
+{11/11}: [sty 7,txa,cmp 7,b? [lda 1] [lda 2]] --> [A]

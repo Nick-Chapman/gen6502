@@ -31,6 +31,11 @@ initMS env ee = do
 
 get_loc :: MachineState -> Reg -> Byte
 get_loc MS{m} loc = look "get_loc" m loc
+--get_loc MS{m} loc = _look1 42 m loc -- hack
+
+_look1 :: (Ord k, Show k) => v -> Map k v -> k -> v
+_look1 def m k = maybe def id (Map.lookup k m)
+
 
 ----------------------------------------------------------------------
 -- step instruction

@@ -76,6 +76,25 @@ run1 target mu ee (i,example) = do
   -- Error if we dont have at least one sequence.
   if length rs == 0 then error "#results==0" else pure ()
 
+
+{-
+  -- emulation is bust, so print code seq before emul
+  printf "evaluation env = %s\n" (show ee)
+  printf "evaluation -> %d\n" eres
+  let
+    prRes1 (cost,code) = do
+      printf "{%s}: %s --> [%s]..." (show cost) (show code) (show target)
+      let ms0 = initMS mu ee
+      let mres = emulate ms0 code target
+      let same = (mres == eres)
+      let ok :: String = if same then "" else printf " {FAIL: different: %d}" mres
+      printf "%s\n" ok
+
+  mapM_ prRes1 rs
+-}
+
+
+
   -- Check we dont have two identical sequences (indicates inefficient codegen).
   let n1 = length rs
   --printf "#results=%d\n" n1
@@ -84,6 +103,8 @@ run1 target mu ee (i,example) = do
   when (n1 /= n2) $ do
     printf "#results=%d #NUB=%d\n" n1 n2
     error "*NUB*"
+
+
 
   -- Emulate each instruction sequence.
   let ms0 = initMS mu ee

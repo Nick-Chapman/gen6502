@@ -3,14 +3,15 @@ module Compile
   ) where
 
 import Asm (Asm(..))
-import Codegen (preamble,codegen,assign,Reg,Arg)
+--import Codegen (preamble,codegen,assign,Reg,Arg)
 import Semantics (Arg1)
 import Data.Map (Map)
 import Language (Exp(..),Form(..),Op2(..),Op1(..),Var,Pred(..))
 import Util (look,extend)
 import qualified Semantics as S
 
-import Codegen (codegenPred,codegenBranch)
+import Codegen -- (codegenPred,codegenBranch)
+import Semantics (Flag(..))
 
 type Env = Map Var Arg
 
@@ -21,8 +22,8 @@ compileTarget env exp reg = do
   assign reg arg
 
 
-compileP :: Env -> Pred -> Asm Arg1
-compileP env = \case
+_compileP :: Env -> Pred -> Asm Arg1
+_compileP env = \case
   Equal exp1 exp2 -> do
     arg1 <- compile env exp1
     arg2 <- compile env exp2
@@ -37,10 +38,11 @@ compile env exp = do
       rhs <- compile env rhs
       compile (extend env x rhs) body
 
-    If p e1 e2 -> do
-      p <- compileP env p
-      p <- codegenBranch p
-      Branch p (compile env e1) (compile env e2)
+    If _p exp1 exp2 -> do
+      _p <- _compileP env _p
+      --p <- codegenBranch p
+      --Branch p (compile env exp1) (compile env exp2)
+      Branch FlagZ (compile env exp1) (compile env exp2)
 
     Form form -> case form of
 
