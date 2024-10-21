@@ -334,3 +334,16 @@
 
 [106]example = (if (x == y) then z else z2)
 {11/11}: [sty 7,txa,cmp 7,b? [lda 1] [lda 2]] --> [A]
+
+[107]example = ((if (x == y) then z else z2) << 1)
+{13/13}: [sty 7,txa,cmp 7,b? [lda 1,asl a] [lda 2,asl a]] --> [A]
+
+[108]example = (if (a == x) then z else (1 + z))
+{12/13}: [stx 7,cmp 7,b? [lda 1] [ldx 1,inx,txa]] --> [A]
+{12/13}: [stx 7,cmp 7,b? [lda 1] [ldy 1,iny,tya]] --> [A]
+
+[109]example = ((if (a == x) then a else x) + 1)
+{11/10}: [stx 7,cmp 7,b? [clc,adc #1] [inx,txa]] --> [A]
+
+[110]example = (((if (a == x) then a else x) + 5) << 1)
+{15/14}: [stx 7,cmp 7,b? [clc,adc #5,asl a] [txa,clc,adc #5,asl a]] --> [A]
