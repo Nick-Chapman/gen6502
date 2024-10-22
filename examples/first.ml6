@@ -1,0 +1,10 @@
+
+let even x = (x & 1) == 0
+
+let collatz_step x =
+  if even x
+  then shr x
+  else shl x + x
+
+let main () =
+  collatz_step 7

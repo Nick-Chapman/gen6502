@@ -1,0 +1,29 @@
+
+let print_nib x : unit =
+  oswrch (index "0123456789abcdef" x)
+
+let hi_nib x = x & 0xff
+let lo_nib x =  shr (shr (shr (shr x)))
+
+let print_hex x : unit =
+  let () = print_nib (hi_nib x) in
+  let () = print_nib (lo_nib x) in
+  ()
+
+let even x = (x & 1) == 0
+
+let collatz_step x =
+  if even x
+  then shr x
+  else shl x + x
+
+let rec collatz_loop x : unit =
+  let () = print_hex x in
+  if x == 1
+  then ()
+  else
+    let x' = collatz_step x in
+    collatz_loop x'
+
+let main () : unit =
+  collatz_loop 7

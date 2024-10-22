@@ -1,0 +1,18 @@
+(library
+ (name gen6502examples)
+ (flags (:standard -nostdlib -nopervasives)))
+
+;; atogen
+(rule
+   (with-stdout-to collatz.ml
+     (progn
+       (echo "module F(X:Prim.S) : sig val main : unit -> unit end = struct open! X ")
+       (cat collatz.ml6)
+       (echo "end"))))
+
+(rule
+   (with-stdout-to first.ml
+     (progn
+       (echo "module F(X:Prim.S) : sig val main : unit -> X.byte end = struct open! X ")
+       (cat first.ml6)
+       (echo "end"))))
