@@ -33,6 +33,7 @@ default-extensions:
 - DeriveFunctor
 - DuplicateRecordFields
 - EmptyCase
+- EmptyDataDeriving
 - FlexibleContexts
 - GADTs
 - GeneralizedNewtypeDeriving
