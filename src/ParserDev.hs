@@ -5,15 +5,123 @@ import Text.Printf (printf)
 import qualified Data.Char as Char (isAlpha)
 import Data.List (intercalate)
 
+import Instruction
+import Asm
+import Cost
+import Data.List (sortBy)
+import Util (look,extend)
+
+import Data.Map (Map)
+import qualified Data.Map as Map
+
 main :: FilePath -> IO ()
 main file = do
-  --putStrLn "*parserDev*"
   s <- readFile file
-  let prog = parse6 s
-  print prog
+  let prog = parse gram6 s
+  go prog
 
-parse6 :: String -> Prog
-parse6 = parse gram6
+----------------------------------------------------------------------
+-- go
+
+go :: Prog -> IO ()
+go prog = do
+  print prog
+  code <- generateCode prog
+  ppCode code
+
+ppCode :: Code -> IO ()
+ppCode code =
+  print code
+
+generateCode :: Prog -> IO Code
+generateCode prog = do
+  printf "generateCode...\n"
+  let asm = compileProg prog
+  let state :: AsmState = undefined
+  let xs = runAsm state asm
+  printf "run asm -> #%d alts\n" (length xs)
+  let ys = orderByCost xs
+  case ys of
+    [] -> error "no alts"
+    (cost,code):_ -> do
+      printf "smallest cost = %s\n" (show cost)
+      pure code
+
+orderByCost :: [Code] -> [(Cost,Code)]
+orderByCost xs = do
+  sortByCost [ (costOfCode code, code) | code <- xs ]
+  where
+    sortByCost =
+      sortBy (\(c1,code1) (c2,code2) ->
+                 case lessTime c1 c2 of
+                   EQ -> compare code1 code2 -- order determinism of tests
+                   x -> x)
+
+----------------------------------------------------------------------
+-- Ast
+
+data Prog = Prog [Def]
+
+data Def = Def { name :: Id, formals :: [Id], body :: Exp}
+
+type Id = String
+
+data Exp
+  = Var Id
+  | Num Int
+  | Str String
+  | Unit
+  | App Id [Exp]
+  | Ite Exp Exp Exp
+  | Let Id Exp Exp
+
+----------------------------------------------------------------------
+-- compile
+
+data DVal = DefClosure { def :: Def, denv :: Denv }
+
+type Denv = Map Id DVal
+
+compileProg :: Prog -> Asm ()
+compileProg = \case
+  Prog defs -> do
+    let main = "main"
+    let denv = collectDefs Map.empty defs
+    _val <- compileDefApp denv main [] -- TODO: do what with result?
+    pure ()
+
+collectDefs :: Denv -> [Def] -> Denv
+collectDefs denv = \case
+  [] -> denv
+  def@Def{name}:defs -> do
+    let dval = DefClosure { def, denv }
+    collectDefs (extend denv name dval) defs
+
+compileDefApp :: Denv -> Id -> [Val] -> Asm Val
+compileDefApp denv0 name actuals = do
+  let DefClosure{denv,def} = look "compileDefApp" denv0 name
+  let Def{formals,body} = def
+  let env = Map.fromList (zip formals actuals) -- TODO: check length
+  compileExp denv env body
+
+data Val = VAL -- TODO
+
+type Env = Map Id Val
+
+compileExp :: Denv -> Env -> Exp -> Asm Val
+compileExp denv env = \case
+  Var x -> undefined x env
+  Num n -> undefined n VAL -- HERE
+  Str s -> undefined s
+  Unit -> undefined
+  App func args -> do
+    actuals <- sequence [ compileExp denv env arg | arg <- args ]
+    compileDefApp denv func actuals
+  Ite{} -> undefined
+  Let{} -> undefined
+
+
+----------------------------------------------------------------------
 
 gram6 :: Par Prog
 gram6 = program where
@@ -140,41 +248,27 @@ gram6 = program where
   definition = do
     key "let"
     name <- identifier
-    args <- some pat
+    formals <- some pat
     key "="
     body <- exp
-    return Def { name, args, body }
+    return Def { name, formals, body }
 
   program = do
     whitespace
     defs <- many definition
     pure $ Prog defs
 
-
-data Prog = Prog [Def]
-
-data Def = Def { name :: Id, args :: [Id], body :: Exp}
-
-type Id = String
-
-data Exp
-  = Var Id
-  | Num Int
-  | Str String
-  | Unit
-  | App Id [Exp]
-  | Ite Exp Exp Exp
-  | Let Id Exp Exp
-
+----------------------------------------------------------------------
+-- pretty print
 
 instance Show Prog where
   show (Prog defs) =
     "\n" ++ intercalate "\n" (map show defs)
 
 instance Show Def where
-  show Def{name,args,body} =
+  show Def{name,formals,body} =
     unlines $ indented
-    (printf "let %s %s =" name (intercalate " " args))
+    (printf "let %s %s =" name (intercalate " " formals))
     (pretty body)
 
 instance Show Exp where show = unlines . pretty

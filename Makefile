@@ -1,5 +1,5 @@
 
-top: dev-collatz
+top: dev-first
 
 ocaml-collatz:
 	dune exec examples/main.exe
