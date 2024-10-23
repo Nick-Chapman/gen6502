@@ -3,15 +3,12 @@ module Compile
   ) where
 
 import Asm (Asm(..))
---import Codegen (preamble,codegen,assign,Reg,Arg)
-import Semantics (Arg1)
+import Codegen (preamble,codegen,codegenPred,codegenBranch,assign,Reg,Arg)
 import Data.Map (Map)
 import Language (Exp(..),Form(..),Op2(..),Op1(..),Var,Pred(..))
+import Semantics (Arg1)
 import Util (look,extend)
-import qualified Semantics as S
-
-import Codegen -- (codegenPred,codegenBranch)
-import Semantics (Flag(..))
+import qualified Semantics as Sem
 
 type Env = Map Var Arg
 
@@ -22,12 +19,12 @@ compileTarget env exp reg = do
   assign reg arg
 
 
-_compileP :: Env -> Pred -> Asm Arg1
-_compileP env = \case
+compileP :: Env -> Pred -> Asm Arg1
+compileP env = \case
   Equal exp1 exp2 -> do
     arg1 <- compile env exp1
     arg2 <- compile env exp2
-    codegenPred (S.Equal arg1 arg2)
+    codegenPred (Sem.Equal arg1 arg2)
 
 compile :: Env -> Exp -> Asm Arg
 compile env exp = do
@@ -38,15 +35,15 @@ compile env exp = do
       rhs <- compile env rhs
       compile (extend env x rhs) body
 
-    If _p exp1 exp2 -> do
-      _p <- _compileP env _p
-      --p <- codegenBranch p
-      --Branch p (compile env exp1) (compile env exp2)
-      Branch FlagZ (compile env exp1) (compile env exp2)
+    If p exp1 exp2 -> do
+      p <- compileP env p
+      _p <- codegenBranch p
+      --Branch _p (compile env exp1) (compile env exp2)
+      Branch Sem.FlagZ (compile env exp1) (compile env exp2)
 
     Form form -> case form of
 
-      Num n -> codegen (S.Num n)
+      Num n -> codegen (Sem.Num n)
 
       Op1 op1 exp1 -> do
         arg1 <- compile env exp1
@@ -58,14 +55,14 @@ compile env exp = do
         codegen (convOp2 op2 arg1 arg2)
 
     where
-      convOp1 :: Op1 -> S.Arg -> S.Oper
+      convOp1 :: Op1 -> Sem.Arg -> Sem.Oper
       convOp1 = \case
-        Asl -> S.Asl
+        Asl -> Sem.Asl
 
-      convOp2 :: Op2 -> S.Arg -> S.Arg -> S.Oper
+      convOp2 :: Op2 -> Sem.Arg -> Sem.Arg -> Sem.Oper
       convOp2 = \case
-        Sub -> S.Sub
-        Add -> commute S.Add
-        Xor -> commute S.Xor
+        Sub -> Sem.Sub
+        Add -> commute Sem.Add
+        Xor -> commute Sem.Xor
 
       commute op a b = if a < b then op a b else op b a
