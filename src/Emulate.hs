@@ -1,44 +1,23 @@
 module Emulate
-  ( MachineState, initMS, emulate, EmuEnv
+  ( MachineState(..), emulate,
   ) where
 
 import Data.Bits (xor)
 import Data.Map (Map)
 import Data.Word (Word8)
 import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
-import Language (Var,EvalEnv)
 import Semantics (Reg(..),Immediate(..))
 import Util (look,extend)
-import qualified Data.Map as Map
 
 type Byte = Word8
 
-type EmuEnv = Map Var Reg
+data MachineState = MS { m :: Map Reg Byte } -- flags will go in here also
+
+getMS :: MachineState -> Reg -> Byte
+getMS MS{m} reg = look "getMS" m reg
 
 emulate :: MachineState -> Code -> Reg -> Byte
-emulate ms0 code locFinal = get_loc (steps ms0 code) locFinal
-
-----------------------------------------------------------------------
--- machine state
-
-data MachineState = MS { m :: Map Reg Byte } -- flags will go in here also
-  deriving Show
-
-initMS :: EmuEnv -> EvalEnv -> MachineState
-initMS env ee = do
-  let m = Map.fromList [ (loc,look "initMS" ee var) | (var,loc) <- Map.toList env ]
-  MS m
-
-get_loc :: MachineState -> Reg -> Byte
-get_loc MS{m} loc = look "get_loc" m loc
---get_loc MS{m} loc = _look1 42 m loc -- hack
-
-_look1 :: (Ord k, Show k) => v -> Map k v -> k -> v
-_look1 def m k = maybe def id (Map.lookup k m)
-
-
-----------------------------------------------------------------------
--- step instruction
+emulate ms0 code locFinal = getMS (steps ms0 code) locFinal
 
 steps :: MachineState -> Code -> MachineState
 steps ms = \case
@@ -47,7 +26,7 @@ steps ms = \case
 
 step :: MachineState -> Instruction -> MachineState
 step ms@MS{m} = do
-  let get loc = get_loc ms loc
+  let get reg = getMS ms reg
   let a = RegA
   let x = RegX
   let y = RegY

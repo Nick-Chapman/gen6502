@@ -6,13 +6,17 @@ import Compile (compileTarget)
 import Control.Monad (when)
 import Cost (Cost,costOfCode,lessTime)
 import Data.List (sortBy)
-import Emulate (EmuEnv,initMS,emulate)
+import Data.Map (Map)
+import Emulate (MachineState(..),emulate)
 import Examples (examples)
 import Instruction (Code)
-import Language (Exp(..),EvalEnv,eval)
+import Language (Var,Exp(..),EvalEnv,eval)
 import Semantics (Reg(..),ZeroPage(..),initSS)
 import Text.Printf (printf)
+import Util (look)
 import qualified Data.Map as Map
+
+type EmuEnv = Map Var Reg
 
 -- Sequence the Compilation and Asm generation of all instruction sequences.
 compile :: EmuEnv -> Exp -> Reg -> [(Cost,Code)]
@@ -80,8 +84,10 @@ run1 target mu ee (i,example) = do
   let (lowestCost::Cost,_) = head rs
   let best = takeWhile (\(cost,_) -> cost == lowestCost) rs
 
+  -- setup initial machine-state for emultaion
+  let ms0 = MS $ Map.fromList [ (loc,look "initMS" ee var) | (var,loc) <- Map.toList mu ]
+
   -- Emulate & display an instruction sequence...
-  let ms0 = initMS mu ee
   let
     prRes see (cost,code) = do
       let mres = emulate ms0 code target
