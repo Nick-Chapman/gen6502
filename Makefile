@@ -1,6 +1,9 @@
 
 top: dev-collatz
 
+ocaml-collatz:
+	dune exec examples/main.exe
+
 test: regression
 
 dev-%: src/*.hs examples/%.ml6

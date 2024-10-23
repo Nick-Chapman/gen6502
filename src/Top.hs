@@ -6,7 +6,7 @@ import qualified ParserDev
 
 main :: IO ()
 main = do
-  putStrLn "*gen6502*"
+  --putStrLn "*gen6502*"
   args <- getArgs
   case (parseCommandLine args) of
     RunTests -> Testing.runTests

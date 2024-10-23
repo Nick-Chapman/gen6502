@@ -3,10 +3,11 @@ module ParserDev (main) where
 import Par4 (parse,Par,noError,alts,many,some,sat)
 import Text.Printf (printf)
 import qualified Data.Char as Char (isAlpha)
+import Data.List (intercalate)
 
 main :: FilePath -> IO ()
 main file = do
-  putStrLn "*parserDev*"
+  --putStrLn "*parserDev*"
   s <- readFile file
   let prog = parse6 s
   print prog
@@ -150,13 +151,12 @@ gram6 = program where
     pure $ Prog defs
 
 
-data Def = Def { name :: String, args :: [String], body :: Exp}
-  deriving Show
-
 data Prog = Prog [Def]
-  deriving Show
+
+data Def = Def { name :: Id, args :: [Id], body :: Exp}
 
 type Id = String
+
 data Exp
   = Var Id
   | Num Int
@@ -165,4 +165,49 @@ data Exp
   | App Id [Exp]
   | Ite Exp Exp Exp
   | Let Id Exp Exp
-  deriving Show
+
+
+instance Show Prog where
+  show (Prog defs) =
+    "\n" ++ intercalate "\n" (map show defs)
+
+instance Show Def where
+  show Def{name,args,body} =
+    unlines $ indented
+    (printf "let %s %s =" name (intercalate " " args))
+    (pretty body)
+
+instance Show Exp where show = unlines . pretty
+
+pretty :: Exp -> Lines
+pretty = \case
+  Var x -> [x]
+  Num n -> [show n]
+  Str s -> [show s]
+  Unit -> ["()"]
+  App func args ->
+    bracket (foldl jux [] ([func] : map pretty args))
+  Ite i t e ->
+    bracket (indented "if" (pretty i) ++ indented "then" (pretty t) ++ indented "else" (pretty e))
+  Let x rhs body ->
+    indented ("let " ++ x ++ " =") (pretty rhs) ++ pretty body
+
+type Lines = [String]
+
+jux :: Lines -> Lines -> Lines
+jux [x] [y] = [ x ++ " " ++ y ]
+jux xs ys = xs ++ ys
+
+bracket :: Lines -> Lines
+bracket = onHead ("(" ++) . onTail (++ ")")
+
+onHead,onTail :: (String -> String) -> Lines -> Lines
+onHead _ [] = error "onHead"
+onHead f (x:xs) = f x : xs
+onTail f = reverse . onHead f . reverse
+
+indented :: String -> Lines -> Lines
+indented hang = \case
+  [] -> error "indented"
+  [oneLine] -> [hang ++ " " ++ oneLine]
+  lines -> [hang] ++ ["  " ++ line | line <- lines]
