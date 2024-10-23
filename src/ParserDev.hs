@@ -111,7 +111,9 @@ compileExp env = \case
   Ite i t e -> do
     i <- compileExp env i
     ite i (compileExp env t) (compileExp env e)
-  Let{} -> undefined
+  Let x rhs body -> do
+    v <- compileExp env rhs
+    compileExp (extend env x v) body
 
 ite :: Val -> Asm Val -> Asm Val -> Asm Val
 ite i t e = do
