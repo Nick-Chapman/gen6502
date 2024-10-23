@@ -6,7 +6,7 @@
 (rule
    (with-stdout-to collatz.ml
      (progn
-       (echo "module F(X:Prim.S) : sig val main : unit -> unit end = struct open! X ")
+       (echo "module F(X:Prim.S) : sig val main : unit -> X.byte end = struct open! X ")
        (cat collatz.ml6)
        (echo "end"))))
 

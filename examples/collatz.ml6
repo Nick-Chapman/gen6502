@@ -1,11 +1,11 @@
 
-let print_nib x : unit =
+let print_nib x =
   oswrch (index "0123456789abcdef" x)
 
 let hi_nib x = x & 0xff
-let lo_nib x =  shr (shr (shr (shr x)))
+let lo_nib x = shr (shr (shr (shr x)))
 
-let print_hex x : unit =
+let print_hex x =
   let () = print_nib (hi_nib x) in
   let () = print_nib (lo_nib x) in
   ()
@@ -17,13 +17,13 @@ let collatz_step x =
   then shr x
   else shl x + x
 
-let rec collatz_loop x : unit =
+let rec collatz_loop x =
   let () = print_hex x in
   if x == 1
-  then ()
+  then x
   else
     let x' = collatz_step x in
     collatz_loop x'
 
-let main () : unit =
+let main () =
   collatz_loop 7

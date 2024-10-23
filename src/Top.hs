@@ -10,13 +10,15 @@ main = do
   args <- getArgs
   case (parseCommandLine args) of
     RunTests -> Testing.runTests
-    ParserDev -> ParserDev.main
+    ParserDev file -> ParserDev.main file
 
-data Mode = RunTests | ParserDev
+data Mode = RunTests | ParserDev FilePath
 
 parseCommandLine :: [String] -> Mode
 parseCommandLine = \case
   ["test"] -> RunTests
-  ["dev"] -> ParserDev
-  [] -> ParserDev
+  ["dev",file] -> ParserDev file
+  [] -> do
+    let file = "examples/collatz.ml6"
+    ParserDev file
   xs -> error (show ("parseCommandLine",xs))

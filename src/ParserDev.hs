@@ -1,14 +1,12 @@
 module ParserDev (main) where
 
 import Par4 (parse,Par,noError,alts,many,some,sat)
-import Data.Char as Char
 import Text.Printf (printf)
+import qualified Data.Char as Char (isAlpha)
 
-main :: IO ()
-main = do
+main :: FilePath -> IO ()
+main file = do
   putStrLn "*parserDev*"
-  let file = "examples/first.ml6"
-  --let file = "examples/collatz.ml6"
   s <- readFile file
   let prog = parse6 s
   print prog
@@ -22,12 +20,10 @@ gram6 = program where
   fail = alts []
 
   lit x = do _ <- sat (== x); pure ()
-  white = alts [lit ' ',lit '\n'] -- tab?
+  white = alts [lit ' ',lit '\n'] -- TODO: tabs
 
-  digit = digitOfChar <$> sat Char.isDigit
-    where
-      digitOfChar :: Char -> Int
-      digitOfChar c = Char.ord c - ord0 where ord0 = Char.ord '0'
+  decDigit = alts [ do lit c; pure n | (c,n) <- zip "0123456789" [0..] ]
+  hexDigit = alts [ do lit c; pure n | (c,n) <- zip "0123456789abcdef" [0..] ]
 
   whitespace = do _ <- many white; return ()
 
@@ -38,9 +34,10 @@ gram6 = program where
 
   -- nibbling from here...
 
-  keywords = ["let","if","then","else"]
+  keywords = ["let","in","if","then","else"]
 
-  isIdentChar c = Char.isAlpha c || c == '_'
+  isIdentChar1 c = Char.isAlpha c || c == '_'
+  isIdentChar c = isIdentChar1 c || c == '\'' -- TODO digits
 
   key s =
     if all isIdentChar s && s `notElem` keywords
@@ -50,11 +47,35 @@ gram6 = program where
   identifier = noError name
     where
       name = do
-        s <- some $ sat isIdentChar
+        x <- sat isIdentChar1
+        xs <- many $ sat isIdentChar
+        let s = x:xs
         if s `elem` keywords then fail else nibble (pure s)
 
-  number =
-    nibble (foldl (\acc d -> 10*acc + d) 0 <$> some digit)
+  decNumber = do
+    foldl (\acc d -> 10*acc + d) 0 <$> some decDigit
+
+  hexNumber = noError $ do
+    lit '0'
+    lit 'x'
+    foldl (\acc d -> 16*acc + d) 0 <$> some hexDigit
+
+  number = nibble $ alts [hexNumber,decNumber]
+
+  doubleQuote = '"'
+  stringLitChar = sat $ \c -> c /= doubleQuote
+
+  string = nibble $ do
+    lit doubleQuote
+    x <- many stringLitChar
+    lit doubleQuote
+    pure x
+
+  openClose = noError $ do
+    key "("
+    key ")"
+
+  pat = alts [identifier, do openClose; pure "_"]
 
   -- expression forms...
 
@@ -66,15 +87,19 @@ gram6 = program where
 
   var = Var <$> identifier
   num = Num <$> number
+  str = Str <$> string
+  unit = do openClose; pure Unit
 
-  atom = alts [var,num,bracketed exp]
+  atom = alts [num,str,unit,bracketed exp]
+
+  atomOrVar = alts [atom,var]
 
   varOrApp = do
     x <- identifier
-    let loop acc = alts [ do x <- atom; loop (x:acc), pure (App x (reverse acc)) ]
-    alts [ do y <- atom; loop [y], pure (Var x) ]
+    let loop acc = alts [ do x <- atomOrVar; loop (x:acc), pure (App x (reverse acc)) ]
+    alts [ do y <- atomOrVar; loop [y], pure (Var x) ]
 
-  atomOrApp = alts [varOrApp,num,bracketed exp]
+  atomOrApp = alts [atom,varOrApp]
 
   infixOp names sub = sub >>= loop where
     loop acc =
@@ -82,7 +107,7 @@ gram6 = program where
            , do
                name <- alts [ do key x; return x | x <- names ]
                x <- sub
-               loop (Op2 name acc x)
+               loop (App name [acc,x])
            ]
 
   sum = infixOp ["+"] atomOrApp
@@ -93,10 +118,10 @@ gram6 = program where
 
   let_ = do
     key "let"
-    x <- identifier
-    key "then"
+    x <- pat
+    key "="
     rhs <- exp
-    key "else"
+    key "in"
     body <- exp
     pure (Let x rhs body)
 
@@ -111,15 +136,10 @@ gram6 = program where
 
   exp = alts [ite,let_,infixWeakestPrecendence]
 
-  argList =
-    alts [ some identifier
-         , do key "("; key ")"; pure []
-         ]
-
   definition = do
     key "let"
     name <- identifier
-    args <- argList
+    args <- some pat
     key "="
     body <- exp
     return Def { name, args, body }
@@ -140,8 +160,9 @@ type Id = String
 data Exp
   = Var Id
   | Num Int
+  | Str String
+  | Unit
   | App Id [Exp]
   | Ite Exp Exp Exp
   | Let Id Exp Exp
-  | Op2 String Exp Exp
   deriving Show
