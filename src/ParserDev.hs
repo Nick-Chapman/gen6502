@@ -1,18 +1,24 @@
 module ParserDev (main) where
 
+import Asm (AsmState(..),Asm,runAsm)
+import Codegen (codegen,codegenPred,codegenBranch)
+import Cost (Cost,costOfCode,lessTime)
+import Data.List (intercalate)
+import Data.List (sortBy)
+import Data.Map (Map)
+import Data.Word (Word8)
+import Instruction (Code)
 import Par4 (parse,Par,noError,alts,many,some,sat)
 import Text.Printf (printf)
-import qualified Data.Char as Char (isAlpha)
-import Data.List (intercalate)
-
-import Instruction
-import Asm
-import Cost
-import Data.List (sortBy)
 import Util (look,extend)
-
-import Data.Map (Map)
+import qualified Data.Char as Char (isAlpha)
+import qualified Data.List as List
 import qualified Data.Map as Map
+
+import qualified Semantics as Sem
+import qualified Asm
+
+type Byte = Word8
 
 main :: FilePath -> IO ()
 main file = do
@@ -37,7 +43,15 @@ generateCode :: Prog -> IO Code
 generateCode prog = do
   printf "generateCode...\n"
   let asm = compileProg prog
-  let state :: AsmState = undefined
+
+  -- calling main: no vars in no regs
+  let regs = []
+  let (_names,ss) = Sem.initSS regs
+  let temps = [Sem.ZeroPage n | n <- [7..19]]
+  let state :: AsmState = AsmState { ss, temps }
+  --let vars = []
+  --let env = Map.fromList [ (x,Sem.Name name) | (x,name) <- zip vars names ]
+
   let xs = runAsm state asm
   printf "run asm -> #%d alts\n" (length xs)
   let ys = orderByCost xs
@@ -68,7 +82,7 @@ type Id = String
 
 data Exp
   = Var Id
-  | Num Int
+  | Num Byte
   | Str String
   | Unit
   | App Id [Exp]
@@ -78,48 +92,158 @@ data Exp
 ----------------------------------------------------------------------
 -- compile
 
-data DVal = DefClosure { def :: Def, denv :: Denv }
-
-type Denv = Map Id DVal
+type Env = Map Id Val
 
 compileProg :: Prog -> Asm ()
 compileProg = \case
   Prog defs -> do
-    let main = "main"
-    let denv = collectDefs Map.empty defs
-    _val <- compileDefApp denv main [] -- TODO: do what with result?
+    let env = collectDefs initialEnv defs
+    let main = look "compileProg" env "main"
+    _val <- apply main [] -- TODO: do what with result? -- rts !
     pure ()
 
-collectDefs :: Denv -> [Def] -> Denv
-collectDefs denv = \case
-  [] -> denv
+collectDefs :: Env -> [Def] -> Env
+collectDefs env = \case
+  [] -> env
   def@Def{name}:defs -> do
-    let dval = DefClosure { def, denv }
-    collectDefs (extend denv name dval) defs
+    let dval = ValMacro $ Macro { def, env }
+    collectDefs (extend env name dval) defs
 
-compileDefApp :: Denv -> Id -> [Val] -> Asm Val
-compileDefApp denv0 name actuals = do
-  let DefClosure{denv,def} = look "compileDefApp" denv0 name
+applyMacro :: Macro -> [Val] -> Asm Val
+applyMacro Macro{env,def} actuals = do
   let Def{formals,body} = def
-  let env = Map.fromList (zip formals actuals) -- TODO: check length
-  compileExp denv env body
+  let binds = zip formals actuals -- TODO: check length
+  let env' = List.foldl (uncurry . extend) env binds
+  compileExp env' body
 
-data Val = VAL -- TODO
-
-type Env = Map Id Val
-
-compileExp :: Denv -> Env -> Exp -> Asm Val
-compileExp denv env = \case
-  Var x -> undefined x env
-  Num n -> undefined n VAL -- HERE
+compileExp :: Env -> Exp -> Asm Val
+compileExp env = \case
+  Var x -> pure (look "compileExp/Var" env x)
+  Num n -> pure (ValNum n)
   Str s -> undefined s
   Unit -> undefined
   App func args -> do
-    actuals <- sequence [ compileExp denv env arg | arg <- args ]
-    compileDefApp denv func actuals
-  Ite{} -> undefined
+    let f = look "compileExp/App" env func
+    actuals <- sequence [ compileExp env arg | arg <- args ]
+    apply f actuals
+  Ite i t e -> do
+    i <- compileExp env i
+    ite i (compileExp env t) (compileExp env e)
   Let{} -> undefined
 
+ite :: Val -> Asm Val -> Asm Val -> Asm Val
+ite i t e = do
+  i <- getArg1 i
+  _p1 <- codegenBranch i
+  let _p2 = Sem.FlagZ
+  Asm.Branch _p1 t e
+
+----------------------------------------------------------------------
+-- (Compile time) values
+
+data Prim = Prim ([Val] -> Asm Val)
+data Macro = Macro { def :: Def, env :: Env }
+
+data Val
+  = ValMacro Macro
+  | ValPrim Prim
+  | ValNum Byte
+  | ValName8 Sem.Name
+  | ValName1 Sem.Name
+
+valOfArg :: Sem.Arg -> Val
+valOfArg = \case
+  Sem.Name name -> ValName8 name
+  Sem.Imm (Sem.Immediate i) -> ValNum i
+
+valOfArg1 :: Sem.Arg1 -> Val
+valOfArg1 = \case
+  Sem.Name1 name -> ValName1 name
+  -- TODO: we expect to have Sem.Imm1 here
+
+apply :: Val -> [Val] -> Asm Val
+apply f args =
+  case f of
+    ValMacro m -> applyMacro m args
+    ValPrim (Prim f) -> f args
+    ValNum{} -> error "apply, number"
+    ValName8{} -> error "apply, name8"
+    ValName1{} -> error "apply, name1"
+
+initialEnv :: Env
+initialEnv = Map.fromList
+  [ ("&", ValPrim (binary primAnd))
+  , ("+", ValPrim (binary primAdd))
+  , ("==", ValPrim (binary primEq))
+  , ("shr", ValPrim (unary primShr))
+  , ("shl", ValPrim (unary primShl))
+  ]
+
+primShl :: Val -> Asm Val
+primShl v1 = do
+  arg1 <- getArg v1
+  let oper = Sem.Asl arg1
+  res <- codegen oper
+  pure (valOfArg res)
+
+primShr :: Val -> Asm Val
+primShr v1 = do
+  arg1 <- getArg v1
+  let oper = Sem.Asl arg1 -- TODO: bug, should be Lsr
+  res <- codegen oper
+  pure (valOfArg res)
+
+primAdd :: Val -> Val -> Asm Val
+primAdd v1 v2 = do
+  arg1 <- getArg v1
+  arg2 <- getArg v2
+  let oper = commute Sem.Add arg1 arg2
+  res <- codegen oper
+  pure (valOfArg res)
+  where
+    commute op a b = if a < b then op a b else op b a -- should this be in the Semantics?
+
+primAnd :: Val -> Val -> Asm Val
+primAnd v1 v2 = do
+  arg1 <- getArg v1
+  arg2 <- getArg v2
+  let oper = commute Sem.Xor arg1 arg2 -- TODO: bug, should be And
+  res <- codegen oper
+  pure (valOfArg res)
+  where
+    commute op a b = if a < b then op a b else op b a -- should this be in the Semantics?
+
+primEq :: Val -> Val -> Asm Val
+primEq v1 v2 = do
+  arg1 <- getArg v1
+  arg2 <- getArg v2
+  let pred = commute Sem.Equal arg1 arg2
+  res <- codegenPred pred
+  pure (valOfArg1 res)
+  where
+    commute op a b = if a < b then op a b else op b a
+
+unary :: (Val -> Asm Val) -> Prim
+unary op = Prim $ \case [a] -> op a; _ -> error "unary"
+
+binary :: (Val -> Val -> Asm Val) -> Prim
+binary op = Prim $ \case [a,b] -> op a b; _ -> error "binary"
+
+getArg :: Val -> Asm Sem.Arg -- TODO: needs to be in Asm?
+getArg = \case
+  ValName8 name -> pure (Sem.Name name)
+  ValNum n -> pure (Sem.Imm (Sem.Immediate n))
+  ValName1{} -> error "getArg,Name1"
+  ValMacro{} -> error "getArg,Macro"
+  ValPrim{} -> error "getArg,Prim"
+
+getArg1 :: Val -> Asm Sem.Arg1
+getArg1 = \case
+  ValName1 name -> pure (Sem.Name1 name)
+  ValNum{} -> error "getArg1,Num"
+  ValName8{} -> error "getArg1,Name8"
+  ValMacro{} -> error "getArg1,Macro"
+  ValPrim{} -> error "getArg1,Prim"
 
 ----------------------------------------------------------------------
 
