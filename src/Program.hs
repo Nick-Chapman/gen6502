@@ -1,13 +1,22 @@
 module Program
   ( Prog(..), Def(..), Exp(..), Id
   , gram6
+  , exec
   ) where
 
+import Data.Bits (xor,(.&.),shiftL,shiftR)
 import Data.List (intercalate)
+import Data.Map (Map)
 import Data.Word (Word8)
 import Par4 (Par,noError,alts,many,some,sat)
 import Text.Printf (printf)
+import Util (look,extend)
 import qualified Data.Char as Char (isAlpha)
+import qualified Data.List as List
+import qualified Data.Map as Map
+
+----------------------------------------------------------------------
+-- ast
 
 type Byte = Word8
 
@@ -25,6 +34,82 @@ data Exp
   | App Id [Exp]
   | Ite Exp Exp Exp
   | Let Id Exp Exp
+
+----------------------------------------------------------------------
+-- eval
+
+data Value
+  = VNum Byte
+  | VBool Bool
+  | VClosure Closure
+  | VPrim String
+  deriving Show
+
+type Env = Map Id Value
+
+exec :: Prog -> Id -> Value
+exec (Prog defs) main = do
+  let env = collectDefs initialEnv defs
+  let f = look "exec" env main
+  apply f []
+
+collectDefs :: Env -> [Def] -> Env
+collectDefs env = \case
+  [] -> env
+  def@Def{name}:defs -> do
+    let dval = VClosure $ Closure { def, env }
+    collectDefs (extend env name dval) defs
+
+eval :: Env -> Exp -> Value
+eval env = \case
+  Var x -> look "eval/Var" env x
+  Num n -> VNum n
+  Str s -> undefined s
+  Unit -> undefined
+  App func args -> do
+    let f = look "eval/App" env func
+    let actuals = [ eval env arg | arg <- args ]
+    apply f actuals
+  Ite i t e -> do
+    ite (eval env i) (eval env t) (eval env e)
+  Let x rhs body -> do
+    eval (extend env x (eval env rhs)) body
+
+ite :: Value -> Value -> Value -> Value
+ite = \case
+  VBool b -> \t e -> if b then t else e
+  _ -> error "ite, expect bool"
+
+apply :: Value -> [Value] -> Value
+apply f args =
+  case f of
+    VClosure m -> applyClosure m args
+    VPrim fname -> applyPrim (fname,args)
+    _ -> error "apply, no closure or prim"
+
+initialEnv :: Env
+initialEnv = Map.fromList
+  [ (x,VPrim x) | x <- ["&","+","-","==","shr","shl"] ]
+
+applyPrim :: (String, [Value]) -> Value
+applyPrim = \case
+  ("+",[VNum a,VNum b]) -> VNum (a+b)
+  ("&",[VNum a,VNum b]) -> VNum (a .&. b)
+  ("xor",[VNum a,VNum b]) -> VNum (a `xor` b)
+  ("==",[VNum a,VNum b]) -> VBool (a == b)
+  ("shl",[VNum a]) -> VNum (a `shiftL` 1)
+  ("shr",[VNum a]) -> VNum (a `shiftR` 1)
+  x -> error (show ("applyPrim",x))
+
+applyClosure :: Closure -> [Value] -> Value
+applyClosure Closure{env,def} actuals = do
+  let Def{formals,body} = def
+  let binds = zip formals actuals -- TODO: check length
+  let env' = List.foldl (uncurry . extend) env binds
+  eval env' body
+
+data Closure = Closure { def :: Def, env :: Env }
+  deriving Show
 
 ----------------------------------------------------------------------
 -- pretty print

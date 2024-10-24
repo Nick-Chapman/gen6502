@@ -8,7 +8,7 @@ import Data.Map (Map)
 import Data.Word (Word8)
 import Instruction (Code)
 import Par4 (parse)
-import Program (Prog(..),Def(..),Exp(..),Id,gram6)
+import Program (Prog(..),Def(..),Exp(..),Id,gram6,exec)
 import Text.Printf (printf)
 import Util (look,extend)
 import qualified Data.List as List
@@ -32,11 +32,9 @@ main file = do
 go :: Prog -> IO ()
 go prog = do
   print prog
+  let eres = exec prog "main"
+  printf "evaluation -> %s\n" (show eres)
   code <- generateCode prog
-  ppCode code
-
-ppCode :: Code -> IO ()
-ppCode code =
   print code
 
 generateCode :: Prog -> IO Code
