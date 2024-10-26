@@ -332,23 +332,26 @@
 {10/16}: [sty 7,txa,clc,adc 7,sta 8,eor 8] --> [A]
 
 [106]example = (if (x == y) then z else z2)
-{11/11}: [sty 7,txa,cmp 7,b? [lda 1] [lda 2]] --> [A]
+{11/11}: [sty 7,txa,cmp 7,bz [lda 1] [lda 2]] --> [A]
 
 [107]example = ((if (x == y) then z else z2) << 1)
-{13/13}: [sty 7,txa,cmp 7,b? [lda 1,asl a] [lda 2,asl a]] --> [A]
+{13/13}: [sty 7,txa,cmp 7,bz [lda 1,asl a] [lda 2,asl a]] --> [A]
 
 [108]example = (if (a == x) then z else (1 + z))
-{12/13}: [stx 7,cmp 7,b? [lda 1] [ldx 1,inx,txa]] --> [A]
-{12/13}: [stx 7,cmp 7,b? [lda 1] [ldy 1,iny,tya]] --> [A]
+{12/13}: [stx 7,cmp 7,bz [lda 1] [ldx 1,inx,txa]] --> [A]
+{12/13}: [stx 7,cmp 7,bz [lda 1] [ldy 1,iny,tya]] --> [A]
 
 [109]example = ((if (a == x) then a else x) + 1)
-{11/10}: [stx 7,cmp 7,b? [clc,adc #1] [inx,txa]] --> [A]
+{11/10}: [stx 7,cmp 7,bz [clc,adc #1] [inx,txa]] --> [A]
 
 [110]example = (((if (a == x) then a else x) + 5) << 1)
-{15/14}: [stx 7,cmp 7,b? [clc,adc #5,asl a] [txa,clc,adc #5,asl a]] --> [A]
+{15/14}: [stx 7,cmp 7,bz [clc,adc #5,asl a] [txa,clc,adc #5,asl a]] --> [A]
 
 [111]example = (((if (a == x) then a else x) + 1) << 1)
-{13/12}: [stx 7,cmp 7,b? [clc,adc #1,asl a] [inx,txa,asl a]] --> [A]
+{13/12}: [stx 7,cmp 7,bz [clc,adc #1,asl a] [inx,txa,asl a]] --> [A]
 
 [112]example = ((((if (a == x) then a else x) + 5) << 1) << 1)
-{17/16}: [stx 7,cmp 7,b? [clc,adc #5,asl a,asl a] [txa,clc,adc #5,asl a,asl a]] --> [A]
+{17/16}: [stx 7,cmp 7,bz [clc,adc #5,asl a,asl a] [txa,clc,adc #5,asl a,asl a]] --> [A]
+
+[113]example = (if (x == x) then z else z2)
+{11/11}: [stx 7,txa,cmp 7,bz [lda 1] [lda 2]] --> [A]

@@ -6,18 +6,18 @@ import Data.Bits ((.&.),xor)
 import Data.Map (Map)
 import Data.Word (Word8)
 import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
-import Semantics (Reg(..),Immediate(..))
+import Semantics (Reg(..),Flag(..),Immediate(..))
 import Util (look,extend)
 
 type Byte = Word8
 
-data MachineState = MS { m :: Map Reg Byte } -- flags will go in here also
+data MachineState = MS { regs :: Map Reg Byte, flags :: Map Flag Bool }
 
-getMS :: MachineState -> Reg -> Byte
-getMS MS{m} reg = look "getMS" m reg
+getReg :: MachineState -> Reg -> Byte
+getReg MS{regs} reg = look "getReg" regs reg
 
 emulate :: MachineState -> Code -> Reg -> Byte
-emulate ms0 code locFinal = getMS (steps ms0 code) locFinal
+emulate ms0 code locFinal = getReg (steps ms0 code) locFinal
 
 steps :: MachineState -> Code -> MachineState
 steps ms = \case
@@ -25,12 +25,18 @@ steps ms = \case
   i:is -> steps (step ms i) is
 
 step :: MachineState -> Instruction -> MachineState
-step ms@MS{m} = do
-  let get reg = getMS ms reg
+step ms@MS{regs,flags} = do
+  let get = getReg ms
+  let testFlag = look "testFlag" flags
+
   let a = RegA
   let x = RegX
   let y = RegY
-  let up k v = ms { m = extend m k v }
+
+  -- only have Z flag. TODO: update N also when it exists!
+  let upNZ flags v = ms { flags = extend flags FlagZ (v==0) }
+  let up k v = (upNZ flags v) { regs = extend regs k v }
+  let store z = up (ZP z) -- dont update flags
   \case
     Clc -> ms
     Sec -> ms
@@ -46,9 +52,9 @@ step ms@MS{m} = do
         Ldaz z -> up a (get (ZP z))
         Ldxz z -> up x (get (ZP z))
         Ldyz z -> up y (get (ZP z))
-        Sta z -> up (ZP z) (get a)
-        Stx z -> up (ZP z) (get x)
-        Sty z -> up (ZP z) (get y)
+        Sta z -> store z (get a)
+        Stx z -> store z (get x)
+        Sty z -> store z (get y)
     Compute i ->
       case i of
         -- TODO: adc/sbc should read/set carry flag
@@ -62,16 +68,15 @@ step ms@MS{m} = do
         Eorz z -> up a (get a `xor` get (ZP z))
         Inx -> up x (get x + 1)
         Iny -> up y (get y + 1)
-        Incz z -> up (ZP z) (get (ZP z) + 1)
         Asla -> up a (2 * get a)
         Lsra -> up a (get a `div` 2)
+        -- These in-place mem operations DO update the flags
+        Incz z -> up (ZP z) (get (ZP z) + 1)
         Aslz z -> up (ZP z) (2 * get (ZP z))
         Lsrz z -> up (ZP z) (get (ZP z) `div` 2)
     Compare i ->
       case i of
-        Cmpz{} -> ms -- TODO: need to track flag values
-        Cmpi{} -> ms
-    Branch _code1 code2 ->
-      -- TODO need to look at flag value to see where to go
-      -- for now lets big 2nd alternative
-      steps ms code2
+        Cmpz z -> upNZ flags (get a - get (ZP z))
+        Cmpi{} -> undefined ms
+    Branch flag code1 code2 ->
+      steps ms (if testFlag flag then code1 else code2)

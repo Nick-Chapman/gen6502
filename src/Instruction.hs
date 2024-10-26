@@ -3,7 +3,7 @@ module Instruction
   , transferSemantics, computeSemantics, compareSemantics
   ) where
 
-import Semantics (Immediate(..),ZeroPage(..),Semantics,Sem,transfer,overwrite,overwriteI,noSemantics,Reg(..))
+import Semantics (Immediate(..),ZeroPage(..),Semantics,Sem,transfer,overwrite,overwriteI,noSemantics,Reg(..),Flag(..))
 import Text.Printf (printf)
 
 import Semantics (Sem1)
@@ -14,7 +14,7 @@ import Semantics (Sem1)
 type Code = [Instruction]
 
 data Instruction = Tx ITransfer | Compute ICompute | Compare ICompare | Clc | Sec
-  | Branch -- TODO need to know what instruction/condition we are branching on
+  | Branch Flag
     Code Code
   deriving (Eq,Ord)
 
@@ -98,7 +98,7 @@ instance Show Instruction where
     Compare i -> show i
     Clc -> "clc"
     Sec -> "sec"
-    Branch xs1 xs2 -> printf "b? %s %s" (show xs1) (show xs2)
+    Branch br xs1 xs2 -> printf "b%s %s %s" (show br) (show xs1) (show xs2)
 
 instance Show ITransfer where
   show = \case

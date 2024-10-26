@@ -12,4 +12,4 @@ let _collatz_two_steps x =
   x
 
 let main () =
-  collatz_step 6
+  collatz_step 7

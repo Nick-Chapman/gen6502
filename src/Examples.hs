@@ -123,8 +123,8 @@ examples =
 
   , let_ "xy" (add x y) (xor (var "xy") (var "xy"))
 
-  , ifExample1
-  , asl ifExample1
+  , If (Equal x y) z z2
+  , asl (If (Equal x y) z z2)
 
   , If (Equal a x) z (add (num 1) z)
 
@@ -134,11 +134,11 @@ examples =
   , asl (asl (add (If (Equal a x) a x) (num 5)))
   -- , asl (asl (add (If (Equal a x) a x) (num 1)))
 
+  , If (Equal x x) z z2
+
   ]
 
   where
-    ifExample1 = If (Equal x y) z z2
-
     num n = Form (Num n)
     var x = Var x
     add e1 e2 = Form (Op2 Add e1 e2)

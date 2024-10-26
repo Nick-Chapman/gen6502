@@ -85,7 +85,9 @@ run1 target mu ee (i,example) = do
   let best = takeWhile (\(cost,_) -> cost == lowestCost) rs
 
   -- setup initial machine-state for emultaion
-  let ms0 = MS $ Map.fromList [ (loc,look "initMS" ee var) | (var,loc) <- Map.toList mu ]
+  let regs = Map.fromList [ (loc,look "initMS" ee var) | (var,loc) <- Map.toList mu ]
+  let flags = Map.empty
+  let ms0 = MS { regs, flags }
 
   -- Emulate & display an instruction sequence...
   let

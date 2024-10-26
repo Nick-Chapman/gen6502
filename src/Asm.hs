@@ -61,4 +61,4 @@ untree :: CodeTree () -> Code
 untree = \case
   Done () -> []
   Do i t -> i : untree t
-  Br _flag t1 t2 -> [I.Branch (untree t1) (untree t2)]
+  Br flag t1 t2 -> [I.Branch flag (untree t1) (untree t2)]

@@ -70,7 +70,7 @@ space_time = \case
     case i of
       Cmpi{} -> (2,2)
       Cmpz{} -> (2,3)
-  Branch code1 code2 -> do
+  Branch _ code1 code2 -> do
     let Cost{space=space1,time=time1} = costOfCode code1
     let Cost{space=space2,time=time2} = costOfCode code2
     let maxTime = max time1 time2 -- TODO track max and min & allow ordering to chosse

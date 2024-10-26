@@ -26,8 +26,6 @@ data Pred = Equal Arg Arg
 type Oper1 = Pred
 
 
-data Flag = FlagZ -- 1bit version of Reg
-
 ----------------------------------------------------------------------
 -- Semantic values
 
@@ -136,9 +134,13 @@ overwriteI (Immediate byte) dest ss = do
   update dest sem ss'
 
 ----------------------------------------------------------------------
--- Reg
+-- Reg/Flag
 
 data Reg = RegA | RegX | RegY | ZP ZeroPage
+  deriving (Eq,Ord)
+
+-- 1bit equivalent of Reg
+data Flag = FlagZ -- TODO: need flags for N/C
   deriving (Eq,Ord)
 
 instance Show Reg where
@@ -147,6 +149,10 @@ instance Show Reg where
     RegX -> "X"
     RegY -> "Y"
     ZP z -> "ZP-" ++ show z
+
+instance Show Flag where
+  show = \case
+    FlagZ -> "z"
 
 ----------------------------------------------------------------------
 -- ZeroPage & Immediate

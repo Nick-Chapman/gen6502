@@ -40,7 +40,7 @@ go prog = do
   print code
 
   let target = Sem.RegA
-  let ms0 = MS $ Map.empty
+  let ms0 = MS { regs = Map.empty, flags = Map.empty }
   let mres = emulate ms0 code target
   printf "emulation -> %s\n" (show mres)
 
