@@ -19,6 +19,6 @@ parseCommandLine = \case
   ["test"] -> RunTests
   ["dev",file] -> ParserDev file
   [] -> do
-    let file = "examples/collatz.ml6"
+    let file = "examples/first.ml6"
     ParserDev file
   xs -> error (show ("parseCommandLine",xs))

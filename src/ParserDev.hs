@@ -11,6 +11,8 @@ import Par4 (parse)
 import Program (Prog(..),Def(..),Exp(..),Id,gram6,exec)
 import Text.Printf (printf)
 import Util (look,extend)
+import Emulate (MachineState(..),emulate)
+
 import qualified Data.List as List
 import qualified Data.Map as Map
 
@@ -37,6 +39,11 @@ go prog = do
   code <- generateCode prog
   print code
 
+  let target = Sem.RegA
+  let ms0 = MS $ Map.empty
+  let mres = emulate ms0 code target
+  printf "emulation -> %s\n" (show mres)
+
 generateCode :: Prog -> IO Code
 generateCode prog = do
   printf "generateCode...\n"
@@ -47,8 +54,6 @@ generateCode prog = do
   let (_names,ss) = Sem.initSS regs
   let temps = [Sem.ZeroPage n | n <- [7..19]]
   let state :: AsmState = AsmState { ss, temps }
-  --let vars = []
-  --let env = Map.fromList [ (x,Sem.Name name) | (x,name) <- zip vars names ]
 
   let xs = runAsm state asm
   printf "run asm -> #%d alts\n" (length xs)

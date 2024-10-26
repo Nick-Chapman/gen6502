@@ -24,7 +24,7 @@ codegenPred p =
 cmp :: Pred -> Pred -> Asm Arg1
 cmp p = \case
   Equal arg1 arg2 -> do
-    do loadA arg1; cmpIntoA p arg2
+    do loadA arg1; cmpIntoA p arg2 -- TODO: try either way!
 --  _ ->
 --    Nope
 
