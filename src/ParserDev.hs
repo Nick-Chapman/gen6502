@@ -188,17 +188,17 @@ primAdd v1 v2 = do
   res <- codegen oper
   pure (valOfArg res)
   where
-    commute op a b = if a < b then op a b else op b a -- should this be in the Semantics?
+    commute op a b = if a < b then op a b else op b a -- TODO: should commute be in the Semantics?
 
 primAnd :: Val -> Val -> Asm Val
 primAnd v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
-  let oper = commute Sem.Xor arg1 arg2 -- TODO: bug, should be And
+  let oper = commute Sem.And arg1 arg2
   res <- codegen oper
   pure (valOfArg res)
   where
-    commute op a b = if a < b then op a b else op b a -- should this be in the Semantics?
+    commute op a b = if a < b then op a b else op b a
 
 primEq :: Val -> Val -> Asm Val
 primEq v1 v2 = do

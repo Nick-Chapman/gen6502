@@ -63,6 +63,6 @@ compile env exp = do
       convOp2 = \case
         Sub -> Sem.Sub
         Add -> commute Sem.Add
-        Xor -> commute Sem.Xor
+        Xor -> commute Sem.Eor
 
       commute op a b = if a < b then op a b else op b a

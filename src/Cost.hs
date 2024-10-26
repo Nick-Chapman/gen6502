@@ -53,9 +53,11 @@ space_time = \case
     case i of
       Adci{} -> (2,2)
       Sbci{} -> (2,2)
+      Andi{} -> (2,2)
       Eori{} -> (2,2)
       Adcz{} -> (2,3)
       Sbcz{} -> (2,3)
+      Andz{} -> (2,3)
       Eorz{} -> (2,3)
       Inx -> (1,2)
       Iny -> (1,2)

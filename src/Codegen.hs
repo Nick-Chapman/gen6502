@@ -3,7 +3,7 @@ module Codegen
   , codegenPred, codegenBranch
   ) where
 
-import Prelude hiding (exp,compare)
+import Prelude hiding (exp,compare,and)
 import Asm (AsmState(..),Asm(..))
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
 import Semantics (SemState,Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemOper,findSemState)
@@ -89,7 +89,7 @@ perhaps :: Asm () -> Asm ()
 perhaps a = Alt (pure ()) a
 
 driveA,driveX,driveY,driveZ :: Gen
-driveA = select [doublingA,halvingA,addition,subtraction,xor]
+driveA = select [doublingA,halvingA,addition,subtraction,and,eor]
 driveX = select [incrementX]
 driveY = select [incrementY]
 driveZ = select [incrementZ,doublingZ,halvingZ]
@@ -177,9 +177,26 @@ subIntoA e = \case
       Just z -> do sec; compute e (Sbcz z)
       Nothing -> Nope
 
-xor :: Gen
-xor = \e -> \case
-  Xor arg1 arg2 ->
+and :: Gen
+and = \e -> \case
+  And arg1 arg2 ->
+    commutativeBinOp (andIntoA e) arg1 arg2
+  _ ->
+    Nope
+
+andIntoA :: Down -> Arg -> Asm Arg
+andIntoA e = \case
+  Imm imm -> do compute e (Andi imm)
+  Name name -> do
+    Located{z} <- locations name
+    -- only location: Z (not A,X,Y)
+    case z of
+      Just z -> do compute e (Andz z)
+      Nothing -> Nope
+
+eor :: Gen
+eor = \e -> \case
+  Eor arg1 arg2 ->
     commutativeBinOp (eorIntoA e) arg1 arg2
   _ ->
     Nope

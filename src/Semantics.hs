@@ -48,7 +48,8 @@ data Oper
   = Num Byte
   | Add Arg Arg
   | Sub Arg Arg
-  | Xor Arg Arg
+  | And Arg Arg
+  | Eor Arg Arg
   | Asl Arg
   | Lsr Arg
   -- TODO: note. adding a new Semantic form here causes no compile time errors.

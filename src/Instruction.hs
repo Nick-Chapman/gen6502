@@ -31,6 +31,7 @@ data ITransfer
 data ICompute
   = Adcz ZeroPage | Adci Immediate
   | Sbcz ZeroPage | Sbci Immediate
+  | Andz ZeroPage | Andi Immediate
   | Eorz ZeroPage | Eori Immediate
 
   | Inx | Iny
@@ -70,6 +71,8 @@ computeSemantics sem = \case
   Adcz{} -> overwrite sem RegA
   Sbci{} -> overwrite sem RegA
   Sbcz{} -> overwrite sem RegA
+  Andi{} -> overwrite sem RegA
+  Andz{} -> overwrite sem RegA
   Eori{} -> overwrite sem RegA
   Eorz{} -> overwrite sem RegA
   Inx -> overwrite sem RegX
@@ -125,6 +128,8 @@ instance Show ICompute where
     Sbcz a -> oneArg "sbc" a
     Sbci a -> oneArg "sbc" a
     Adcz a -> oneArg "adc" a
+    Andi a -> oneArg "and" a
+    Andz a -> oneArg "and" a
     Eori a -> oneArg "eor" a
     Eorz a -> oneArg "eor" a
     Incz a -> oneArg "inc" a
