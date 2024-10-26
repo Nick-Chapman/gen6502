@@ -1,9 +1,9 @@
 module ParserDev (main) where
 
 import Asm (AsmState(..),Asm,runAsm)
-import Codegen (codegen,codegenPred,codegenBranch)
+import Codegen (codegen,codegenPred,codegenBranch,assign)
 import Control.Monad (when)
-import Cost (Cost,costOfCode,lessTime)
+import Cost (Cost,costOfCode)
 import Data.List (sortBy)
 import Data.Map (Map)
 import Data.Word (Word8)
@@ -13,6 +13,7 @@ import Par4 (parse)
 import Program (Prog(..),Def(..),Exp(..),Id,gram6,exec,Value(..))
 import Text.Printf (printf)
 import Util (look,extend)
+import qualified Cost
 
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -35,23 +36,30 @@ main file = do
 go :: Prog -> IO ()
 go prog = do
   print prog
+  let target = Sem.RegX -- RegA; ZP 99 -- TODO: perhaps test various targets
   let eres = exec prog "main"
+  -- TODO: pass arg(s) in registers. allow initial value to be moved out of example
+  -- and perhaps test a couple of initial values
   printf "evaluation -> %s\n" (show eres)
-  code <- generateCode prog
-  print code
+  let
+    tryCode code = do
+      print code
+      let ms0 = MS { regs = Map.empty, flags = Map.empty }
+      let mres = emulate ms0 code target
+      printf "emulation -> %s\n" (show mres)
+      let same = (VNum mres == eres)
+      when (not same) $ printf "*DIFF*\n"
+      pure ()
 
-  let target = Sem.RegA
-  let ms0 = MS { regs = Map.empty, flags = Map.empty }
-  let mres = emulate ms0 code target
-  printf "emulation -> %s\n" (show mres)
-  let same = (VNum mres == eres)
-  when (not same) $ printf "*DIFF*\n"
+  alts <- generateCodeAlts target prog
+  --sequence_ [ tryCode code | code <- alts ]
+  tryCode (head alts)
 
 
-generateCode :: Prog -> IO Code
-generateCode prog = do
+generateCodeAlts :: Sem.Reg -> Prog -> IO [Code]
+generateCodeAlts target prog = do
   printf "generateCode...\n"
-  let asm = compileProg prog
+  let asm = compileProg target prog
 
   -- calling main: no vars in no regs
   let regs = []
@@ -64,9 +72,10 @@ generateCode prog = do
   let ys = orderByCost xs
   case ys of
     [] -> error "no alts"
-    (cost,code):_ -> do
-      printf "smallest cost = %s\n" (show cost)
-      pure code
+    (lowestCost,_):_ -> do
+      let best = takeWhile (\(cost,_) -> cost == lowestCost) ys
+      printf "smallest cost = %s, from #%d alternatives\n" (show lowestCost) (length best)
+      pure [ code | (_,code) <- best ]
 
 orderByCost :: [Code] -> [(Cost,Code)]
 orderByCost xs = do
@@ -74,7 +83,7 @@ orderByCost xs = do
   where
     sortByCost =
       sortBy (\(c1,code1) (c2,code2) ->
-                 case lessTime c1 c2 of
+                 case Cost.lessTime c1 c2 of
                    EQ -> compare code1 code2 -- order determinism of tests
                    x -> x)
 
@@ -83,12 +92,15 @@ orderByCost xs = do
 
 type Env = Map Id Val
 
-compileProg :: Prog -> Asm ()
-compileProg = \case
+compileProg :: Sem.Reg -> Prog -> Asm ()
+compileProg target = \case
   Prog defs -> do
     let env = collectDefs initialEnv defs
     let main = look "compileProg" env "main"
-    _val <- apply main [] -- TODO: do what with result? -- rts !
+    v <- apply main []
+    arg <- getArg v
+    assign target arg
+    -- TODO: rts
     pure ()
 
 collectDefs :: Env -> [Def] -> Env
