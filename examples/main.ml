@@ -13,7 +13,7 @@ module Prim : G.Prim.S = struct
   let osnewl () = printf "\n"
 end
 let () = printf "Collatz.main()...\n"
-module Example = G.Collatz
+module Example = G.First (*Collatz*)
 module M = Example.F(Prim)
 let main = M.main
 let res = main ()

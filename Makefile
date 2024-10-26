@@ -1,7 +1,7 @@
 
 top: dev-first
 
-ocaml-collatz:
+ocaml-exec:
 	dune exec examples/main.exe
 
 test: regression

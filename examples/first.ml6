@@ -6,7 +6,7 @@ let collatz_step x =
   then shr x
   else shl x + x
 
-let collatz_two_steps x =
+let _collatz_two_steps x =
   let x = collatz_step x in
   let x = collatz_step x in
   x
