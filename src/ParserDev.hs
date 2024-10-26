@@ -2,16 +2,17 @@ module ParserDev (main) where
 
 import Asm (AsmState(..),Asm,runAsm)
 import Codegen (codegen,codegenPred,codegenBranch)
+import Control.Monad (when)
 import Cost (Cost,costOfCode,lessTime)
 import Data.List (sortBy)
 import Data.Map (Map)
 import Data.Word (Word8)
+import Emulate (MachineState(..),emulate)
 import Instruction (Code)
 import Par4 (parse)
-import Program (Prog(..),Def(..),Exp(..),Id,gram6,exec)
+import Program (Prog(..),Def(..),Exp(..),Id,gram6,exec,Value(..))
 import Text.Printf (printf)
 import Util (look,extend)
-import Emulate (MachineState(..),emulate)
 
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -43,6 +44,9 @@ go prog = do
   let ms0 = MS { regs = Map.empty, flags = Map.empty }
   let mres = emulate ms0 code target
   printf "emulation -> %s\n" (show mres)
+  let same = (VNum mres == eres)
+  when (not same) $ printf "*DIFF*\n"
+
 
 generateCode :: Prog -> IO Code
 generateCode prog = do

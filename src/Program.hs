@@ -1,7 +1,7 @@
 module Program
   ( Prog(..), Def(..), Exp(..), Id
   , gram6
-  , exec
+  , exec, Value(..)
   ) where
 
 import Data.Bits (xor,(.&.),shiftL,shiftR)
@@ -23,6 +23,7 @@ type Byte = Word8
 data Prog = Prog [Def]
 
 data Def = Def { name :: Id, formals :: [Id], body :: Exp}
+  deriving (Eq)
 
 type Id = String
 
@@ -34,6 +35,7 @@ data Exp
   | App Id [Exp]
   | Ite Exp Exp Exp
   | Let Id Exp Exp
+  deriving (Eq)
 
 ----------------------------------------------------------------------
 -- eval
@@ -43,7 +45,10 @@ data Value
   | VBool Bool
   | VClosure Closure
   | VPrim String
-  deriving Show
+  deriving (Eq,Show)
+
+data Closure = Closure { def :: Def, env :: Env }
+  deriving (Eq,Show)
 
 type Env = Map Id Value
 
@@ -107,9 +112,6 @@ applyClosure Closure{env,def} actuals = do
   let binds = zip formals actuals -- TODO: check length
   let env' = List.foldl (uncurry . extend) env binds
   eval env' body
-
-data Closure = Closure { def :: Def, env :: Env }
-  deriving Show
 
 ----------------------------------------------------------------------
 -- pretty print
