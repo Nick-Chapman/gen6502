@@ -89,10 +89,10 @@ perhaps :: Asm () -> Asm ()
 perhaps a = Alt (pure ()) a
 
 driveA,driveX,driveY,driveZ :: Gen
-driveA = select [doublingA,addition,subtraction,xor]
+driveA = select [doublingA,halvingA,addition,subtraction,xor]
 driveX = select [incrementX]
 driveY = select [incrementY]
-driveZ = select [incrementZ,doublingZ]
+driveZ = select [incrementZ,doublingZ,halvingZ]
 
 select :: [Gen] -> Gen
 select gs = \e f -> alternatives [ g e f | g <- gs ]
@@ -132,6 +132,11 @@ store target = \case
 doublingA :: Gen
 doublingA = \e -> \case
   Asl arg -> do loadA arg; compute e Asla
+  _ -> Nope
+
+halvingA :: Gen
+halvingA = \e -> \case
+  Lsr arg -> do loadA arg; compute e Lsra
   _ -> Nope
 
 addition :: Gen
@@ -226,6 +231,11 @@ incrementZ e = \case
 doublingZ :: Gen
 doublingZ = \e ->  \case
   Asl arg -> do z <- inZP arg; compute e (Aslz z)
+  _ -> Nope
+
+halvingZ :: Gen
+halvingZ = \e ->  \case
+  Lsr arg -> do z <- inZP arg; compute e (Lsrz z)
   _ -> Nope
 
 inZP :: Arg -> Asm ZeroPage

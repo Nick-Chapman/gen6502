@@ -37,6 +37,8 @@ data ICompute
   | Incz ZeroPage
   | Asla
   | Aslz ZeroPage
+  | Lsra
+  | Lsrz ZeroPage
   deriving (Eq,Ord)
 
 data ICompare
@@ -75,6 +77,8 @@ computeSemantics sem = \case
   Incz z -> overwrite sem (ZP z)
   Asla -> overwrite sem RegA
   Aslz z -> overwrite sem (ZP z)
+  Lsra -> overwrite sem RegA
+  Lsrz z -> overwrite sem (ZP z)
 
 compareSemantics :: Sem1 -> ICompare -> Semantics
 compareSemantics _sem1 = \case -- TODO
@@ -114,7 +118,9 @@ instance Show ICompute where
     Inx -> "inx"
     Iny -> "iny"
     Asla -> "asl a"
+    Lsra -> "lsr a"
     Aslz a -> oneArg "asl" a
+    Lsrz a -> oneArg "lsr" a
     Adci a -> oneArg "adc" a
     Sbcz a -> oneArg "sbc" a
     Sbci a -> oneArg "sbc" a

@@ -62,7 +62,9 @@ step ms@MS{m} = do
         Iny -> up y (get y + 1)
         Incz z -> up (ZP z) (get (ZP z) + 1)
         Asla -> up a (2 * get a)
+        Lsra -> up a (get a `div` 2)
         Aslz z -> up (ZP z) (2 * get (ZP z))
+        Lsrz z -> up (ZP z) (get (ZP z) `div` 2)
     Compare i ->
       case i of
         Cmpz{} -> ms -- TODO: need to track flag values

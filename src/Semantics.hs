@@ -50,6 +50,9 @@ data Oper
   | Sub Arg Arg
   | Xor Arg Arg
   | Asl Arg
+  | Lsr Arg
+  -- TODO: note. adding a new Semantic form here causes no compile time errors.
+  -- because of the way Cogen is setup. This is not really a good thing!
   deriving (Eq,Show)
 
 data Sem = Sem { name :: Name , operM :: Maybe Oper} deriving (Eq)

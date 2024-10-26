@@ -176,7 +176,7 @@ primShl v1 = do
 primShr :: Val -> Asm Val
 primShr v1 = do
   arg1 <- getArg v1
-  let oper = Sem.Asl arg1 -- TODO: bug, should be Lsr
+  let oper = Sem.Lsr arg1
   res <- codegen oper
   pure (valOfArg res)
 

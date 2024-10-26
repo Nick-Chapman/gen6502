@@ -61,7 +61,9 @@ space_time = \case
       Iny -> (1,2)
       Incz{} -> (2,5)
       Asla -> (1,2)
+      Lsra -> (1,2)
       Aslz{} -> (2,5)
+      Lsrz{} -> (2,5)
   Compare i ->
     case i of
       Cmpi{} -> (2,2)
