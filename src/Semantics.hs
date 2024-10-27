@@ -3,14 +3,14 @@ module Semantics
   ( Immediate(..), ZeroPage(..), Reg(..)
   , Name, Arg(..), Oper(..), Sem, makeSem
   , Semantics, noSemantics, transfer, overwrite, overwriteI
-  , SemState, initSS, getFreshName, findSemState, findSemOper
+  , SemState, initSS, getFreshName, findSemState, findSemOper, lookupReg
 
   , Arg1(..), Pred(..), makeSem1,Sem1,Flag(..)
   ) where
 
 import Data.Map (Map)
-import Data.Word (Word8)
 import Text.Printf (printf)
+import Data.Word (Word8)
 import Util (look,extend)
 import qualified Data.Map as Map
 
@@ -81,8 +81,8 @@ data SemState =
 instance Show SemState where
   show SS{ env } = show env
 
-get :: Reg -> SemState -> Sem
-get reg SS{env} = look "get" env reg
+getRegInSS :: String -> Reg -> SemState -> Sem
+getRegInSS tag reg SS{env} = look (printf "getRegInSS(%s)" tag) env reg
 
 update :: Reg -> Sem -> SemState -> SemState
 update reg sem ss@SS{env} = ss { env = extend env reg sem }
@@ -113,6 +113,12 @@ findSemOper SS{env} operK = do
     [] -> Nothing
     name:_ -> Just name
 
+lookupReg :: SemState -> Reg -> Maybe Name
+lookupReg SS{env} reg =
+  case Map.lookup reg env of
+    Nothing -> Nothing
+    Just Sem{name} -> Just name
+
 ----------------------------------------------------------------------
 -- Semantics (function over SemState)
 
@@ -122,7 +128,8 @@ noSemantics :: Semantics
 noSemantics = id
 
 transfer :: Reg -> Reg -> Semantics
-transfer src dest = \s -> update dest (get src s) s
+transfer src dest = \s -> update dest (getRegInSS tag src s) s
+  where tag = printf "transfer:%s-->%s" (show src) (show dest)
 
 overwrite :: Sem -> Reg -> Semantics
 overwrite sem reg ss@SS{env} = do ss { env = extend env reg sem }

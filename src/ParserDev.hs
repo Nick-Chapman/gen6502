@@ -28,6 +28,17 @@ main file = do
   let prog = parse gram6 s
   go prog
 
+
+-- select codegenerator (old/new)
+codegen :: Sem.Oper -> Asm Sem.Arg
+--codegen = CG.codegen
+codegen = CG.codegenNew -- TODO: pass names free/required in continuation
+
+codegenPred :: Sem.Pred -> Asm Sem.Arg1
+--codegenPred = CG.codegenPred
+codegenPred = CG.codegenPredNew
+
+
 ----------------------------------------------------------------------
 -- go
 
@@ -35,22 +46,27 @@ go :: Prog -> IO ()
 go prog = do
   print prog
 
-  --compile...
-  let argReg = Sem.RegA
-  let targetReg = Sem.RegX -- RegA; ZP 99 -- TODO: perhaps test various targets
-
-  printf "generateCode...\n"
-  let alts = generateCodeAlts argReg targetReg prog
-  best <- selectCodeAlt alts
-
   -- evaluate/emulate on a specific argument value
   let argByte = 7
   let args = [VNum argByte]
   let eres = exec prog "main" args
   printf "evaluation -> %s\n" (show eres)
+
+  --compile...
+  let argReg = Sem.RegA
+  let targetReg = Sem.RegX -- RegA; ZP 99 -- TODO: perhaps test various targets
+
+  printf "generateCode...\n"
+  xs <- generateCodeAlts argReg targetReg prog
+  printf "run asm -> #%d alts\n" (length xs)
+
+  -- determine cost of eqch sequence
+  let all = orderByCost xs
+
+  _best <- selectCodeAlt all
   let
-    tryCode code = do
-      print code
+    tryCode (cost,code) = do
+      printf "%s: %s\n" (show cost) (show code)
       let regs = Map.fromList [ (argReg, argByte) ]
       let ms0 = MS { regs, flags = Map.empty }
       let mres = emulate ms0 code targetReg
@@ -59,21 +75,17 @@ go prog = do
       when (not same) $ printf "*DIFF*\n"
       pure ()
 
-  --sequence_ [ tryCode code | code <- best ]
-  tryCode (head best)
+  mapM_ tryCode _best
 
 
-
-selectCodeAlt :: [Code] -> IO [Code]
-selectCodeAlt xs = do
-  printf "run asm -> #%d alts\n" (length xs)
-  let ys = orderByCost xs
+selectCodeAlt :: [(Cost,Code)] -> IO [(Cost,Code)]
+selectCodeAlt ys = do
   case ys of
     [] -> error "no alts"
     (lowestCost,_):_ -> do
       let best = takeWhile (\(cost,_) -> cost == lowestCost) ys
       printf "smallest cost = %s, from #%d alternatives\n" (show lowestCost) (length best)
-      pure [ code | (_,code) <- best ]
+      pure best
 
 
 orderByCost :: [Code] -> [(Cost,Code)]
@@ -86,17 +98,18 @@ orderByCost xs = do
                    EQ -> compare code1 code2 -- order determinism of tests
                    x -> x)
 
-generateCodeAlts :: Sem.Reg -> Sem.Reg -> Prog -> [Code]
+generateCodeAlts :: Sem.Reg -> Sem.Reg -> Prog -> IO [Code]
 generateCodeAlts argReg targetReg = \case
   Prog defs -> do
     let regs = [argReg]
     let (names,ss) = Sem.initSS regs -- TODO: this is weird
+    printf "ss=%s\n" (show ss)
     let argName = case names of [x] -> x; _ -> error "argName, not 1"
     let env = collectDefs initialEnv defs
     let main = look "compileProg" env "main"
     let
       asm = do
-        preamble
+        --preamble
         v <- apply main [ValName8 argName]
         arg <- getArg v
         CG.assign targetReg arg
@@ -104,18 +117,21 @@ generateCodeAlts argReg targetReg = \case
 
     let temps = [Sem.ZeroPage n | n <- [7..19]]
     let state :: AsmState = AsmState { ss, temps }
-    runAsm state asm
+    printf "calling runAsm...\n"
+    let alts = runAsm state asm
+    pure alts
 
 
-preamble :: Asm ()
+{-preamble :: Asm ()
 preamble = do
-  perhaps CG.spillA
+  --perhaps CG.spillA
   --perhaps CG.spillX
   --perhaps CG.spillY
   pure ()
 
-perhaps :: Asm () -> Asm ()
-perhaps a = Asm.Alt (pure ()) a
+--perhaps :: Asm () -> Asm ()
+--perhaps a = Asm.Alt (pure ()) a
+-}
 
 ----------------------------------------------------------------------
 -- compile
@@ -206,14 +222,14 @@ primShl :: Val -> Asm Val
 primShl v1 = do
   arg1 <- getArg v1
   let oper = Sem.Asl arg1
-  res <- CG.codegen oper
+  res <- codegen oper
   pure (valOfArg res)
 
 primShr :: Val -> Asm Val
 primShr v1 = do
   arg1 <- getArg v1
   let oper = Sem.Lsr arg1
-  res <- CG.codegen oper
+  res <- codegen oper
   pure (valOfArg res)
 
 primAdd :: Val -> Val -> Asm Val
@@ -221,7 +237,7 @@ primAdd v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
   let oper = commute Sem.Add arg1 arg2
-  res <- CG.codegen oper
+  res <- codegen oper
   pure (valOfArg res)
   where
     commute op a b = if a < b then op a b else op b a -- TODO: should commute be in the Semantics?
@@ -231,7 +247,7 @@ primAnd v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
   let oper = commute Sem.And arg1 arg2
-  res <- CG.codegen oper
+  res <- codegen oper
   pure (valOfArg res)
   where
     commute op a b = if a < b then op a b else op b a
@@ -241,7 +257,7 @@ primEq v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
   let pred = commute Sem.Equal arg1 arg2
-  res <- CG.codegenPred pred
+  res <- codegenPred pred
   pure (valOfArg1 res)
   where
     commute op a b = if a < b then op a b else op b a

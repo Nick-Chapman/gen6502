@@ -2,6 +2,7 @@ module Codegen
   ( preamble, codegen, assign, Reg, Name, Arg(..)
   , spillA, spillX, spillY
   , codegenPred, codegenBranch
+  , codegenNew, codegenPredNew
   ) where
 
 import Prelude hiding (exp,compare,and)
@@ -9,8 +10,46 @@ import Asm (AsmState(..),Asm(..))
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
 import Semantics (SemState,Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemOper,findSemState)
 
-import Semantics (Arg1(..),Pred(..),makeSem1,Flag(..))
+import Semantics (Arg1(..),Pred(..),makeSem1,Flag(..),lookupReg)
 --import Instruction
+
+
+----------------------------------------------------------------------
+-- lazy spill only when necessary
+
+codegenNew :: Oper -> Asm Arg
+codegenNew oper =
+  alternatives
+  [ do maybeSpill RegA; driveA (Down oper) oper
+  , do maybeSpill RegX; driveX (Down oper) oper
+  , do maybeSpill RegY; driveY (Down oper) oper
+  , driveZ (Down oper) oper
+  , do numeric (Down oper) oper
+  ]
+
+codegenPredNew :: Pred -> Asm Arg1
+codegenPredNew p = do
+  maybeSpill RegA
+  codegenPred p
+
+maybeSpill :: Reg -> Asm ()
+maybeSpill reg = do
+  whatsIn reg >>= \case
+    Nothing -> pure ()
+    Just _name -> spill reg -- TODO: only if name needed
+  pure ()
+
+whatsIn :: Reg -> Asm (Maybe Name)
+whatsIn reg = do
+  ss <- querySS
+  pure (lookupReg ss reg)
+
+spill :: Reg -> Asm ()
+spill = \case
+  RegA -> spillA
+  RegX -> spillA
+  RegY -> spillA
+  ZP{} -> error "spill-ZP"
 
 ----------------------------------------------------------------------
 -- predicates
@@ -48,7 +87,6 @@ codegenBranch _ =
   -- so lets just return it, and have emulation show when this is wrong
   --undefined
   pure FlagZ
-
 
 
 ----------------------------------------------------------------------
@@ -224,8 +262,8 @@ commutativeBinOp doOpInA arg1 arg2 = do
         if arg1 == arg2
         then do loadA arg1; doOpInA arg2
         else
-          alternatives [ do loadA arg1; doOpInA arg2
-                       , do loadA arg2; doOpInA arg1 ]
+          alternatives [ do loadA arg1; doOpInA arg2 , do loadA arg2; doOpInA arg1 ] -- TEMP elide
+          --do loadA arg1; doOpInA arg2
 
 
 incrementX :: Gen
@@ -271,8 +309,12 @@ loadA :: Arg -> Asm ()
 loadA arg = do
   loadA1 arg
   -- Load sharing...
-  perhaps $ do trans Tax -- doing one is a bit expensive (improves example 99)
+
+  -- TEMP elide load sharing
+  -- perhaps $ do trans Tax -- doing one is a bit expensive (improves example 99)
   -- perhaps $ do trans Tay -- too expensive at the moment (when testing all persm!)
+
+
 
 loadA1 :: Arg -> Asm ()
 loadA1 = \case

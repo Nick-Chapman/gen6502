@@ -11,5 +11,5 @@ let _collatz_two_steps x =
   let x = collatz_step x in
   x
 
-let main i =
-  collatz_step i
+let main x =
+  collatz_step x
