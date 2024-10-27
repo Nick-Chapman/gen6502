@@ -1,5 +1,6 @@
 module Codegen
   ( preamble, codegen, assign, Reg, Name, Arg(..)
+  , spillA, spillX, spillY
   , codegenPred, codegenBranch
   ) where
 

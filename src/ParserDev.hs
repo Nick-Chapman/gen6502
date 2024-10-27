@@ -1,7 +1,6 @@
 module ParserDev (main) where
 
 import Asm (AsmState(..),Asm,runAsm)
-import Codegen (codegen,codegenPred,codegenBranch,assign)
 import Control.Monad (when)
 import Cost (Cost,costOfCode)
 import Data.List (sortBy)
@@ -12,15 +11,14 @@ import Instruction (Code)
 import Par4 (parse)
 import Program (Prog(..),Def(..),Exp(..),Id,gram6,exec,Value(..))
 import Text.Printf (printf)
-import Util (look,extend)
+import Util (look,extend,zipCheck)
+import qualified Asm
 import qualified Cost
-
 import qualified Data.List as List
 import qualified Data.Map as Map
 
 import qualified Semantics as Sem
-import qualified Asm
-
+import qualified Codegen as CG
 
 type Byte = Word8
 
@@ -36,38 +34,38 @@ main file = do
 go :: Prog -> IO ()
 go prog = do
   print prog
-  let target = Sem.RegX -- RegA; ZP 99 -- TODO: perhaps test various targets
-  let eres = exec prog "main"
-  -- TODO: pass arg(s) in registers. allow initial value to be moved out of example
-  -- and perhaps test a couple of initial values
+
+  --compile...
+  let argReg = Sem.RegA
+  let targetReg = Sem.RegX -- RegA; ZP 99 -- TODO: perhaps test various targets
+
+  printf "generateCode...\n"
+  let alts = generateCodeAlts argReg targetReg prog
+  best <- selectCodeAlt alts
+
+  -- evaluate/emulate on a specific argument value
+  let argByte = 7
+  let args = [VNum argByte]
+  let eres = exec prog "main" args
   printf "evaluation -> %s\n" (show eres)
   let
     tryCode code = do
       print code
-      let ms0 = MS { regs = Map.empty, flags = Map.empty }
-      let mres = emulate ms0 code target
+      let regs = Map.fromList [ (argReg, argByte) ]
+      let ms0 = MS { regs, flags = Map.empty }
+      let mres = emulate ms0 code targetReg
       printf "emulation -> %s\n" (show mres)
       let same = (VNum mres == eres)
       when (not same) $ printf "*DIFF*\n"
       pure ()
 
-  alts <- generateCodeAlts target prog
-  --sequence_ [ tryCode code | code <- alts ]
-  tryCode (head alts)
+  --sequence_ [ tryCode code | code <- best ]
+  tryCode (head best)
 
 
-generateCodeAlts :: Sem.Reg -> Prog -> IO [Code]
-generateCodeAlts target prog = do
-  printf "generateCode...\n"
-  let asm = compileProg target prog
 
-  -- calling main: no vars in no regs
-  let regs = []
-  let (_names,ss) = Sem.initSS regs
-  let temps = [Sem.ZeroPage n | n <- [7..19]]
-  let state :: AsmState = AsmState { ss, temps }
-
-  let xs = runAsm state asm
+selectCodeAlt :: [Code] -> IO [Code]
+selectCodeAlt xs = do
   printf "run asm -> #%d alts\n" (length xs)
   let ys = orderByCost xs
   case ys of
@@ -76,6 +74,7 @@ generateCodeAlts target prog = do
       let best = takeWhile (\(cost,_) -> cost == lowestCost) ys
       printf "smallest cost = %s, from #%d alternatives\n" (show lowestCost) (length best)
       pure [ code | (_,code) <- best ]
+
 
 orderByCost :: [Code] -> [(Cost,Code)]
 orderByCost xs = do
@@ -87,21 +86,42 @@ orderByCost xs = do
                    EQ -> compare code1 code2 -- order determinism of tests
                    x -> x)
 
+generateCodeAlts :: Sem.Reg -> Sem.Reg -> Prog -> [Code]
+generateCodeAlts argReg targetReg = \case
+  Prog defs -> do
+    let regs = [argReg]
+    let (names,ss) = Sem.initSS regs -- TODO: this is weird
+    let argName = case names of [x] -> x; _ -> error "argName, not 1"
+    let env = collectDefs initialEnv defs
+    let main = look "compileProg" env "main"
+    let
+      asm = do
+        preamble
+        v <- apply main [ValName8 argName]
+        arg <- getArg v
+        CG.assign targetReg arg
+        -- TODO: rts
+
+    let temps = [Sem.ZeroPage n | n <- [7..19]]
+    let state :: AsmState = AsmState { ss, temps }
+    runAsm state asm
+
+
+preamble :: Asm ()
+preamble = do
+  perhaps CG.spillA
+  --perhaps CG.spillX
+  --perhaps CG.spillY
+  pure ()
+
+perhaps :: Asm () -> Asm ()
+perhaps a = Asm.Alt (pure ()) a
+
 ----------------------------------------------------------------------
 -- compile
 
 type Env = Map Id Val
 
-compileProg :: Sem.Reg -> Prog -> Asm ()
-compileProg target = \case
-  Prog defs -> do
-    let env = collectDefs initialEnv defs
-    let main = look "compileProg" env "main"
-    v <- apply main []
-    arg <- getArg v
-    assign target arg
-    -- TODO: rts
-    pure ()
 
 collectDefs :: Env -> [Def] -> Env
 collectDefs env = \case
@@ -113,7 +133,7 @@ collectDefs env = \case
 applyMacro :: Macro -> [Val] -> Asm Val
 applyMacro Macro{env,def} actuals = do
   let Def{formals,body} = def
-  let binds = zip formals actuals -- TODO: check length
+  let binds = zipCheck "applyMacro" formals actuals
   let env' = List.foldl (uncurry . extend) env binds
   compileExp env' body
 
@@ -137,7 +157,7 @@ compileExp env = \case
 ite :: Val -> Asm Val -> Asm Val -> Asm Val
 ite i t e = do
   i <- getArg1 i
-  _p1 <- codegenBranch i
+  _p1 <- CG.codegenBranch i
   let _p2 = Sem.FlagZ
   Asm.Branch _p1 t e
 
@@ -186,14 +206,14 @@ primShl :: Val -> Asm Val
 primShl v1 = do
   arg1 <- getArg v1
   let oper = Sem.Asl arg1
-  res <- codegen oper
+  res <- CG.codegen oper
   pure (valOfArg res)
 
 primShr :: Val -> Asm Val
 primShr v1 = do
   arg1 <- getArg v1
   let oper = Sem.Lsr arg1
-  res <- codegen oper
+  res <- CG.codegen oper
   pure (valOfArg res)
 
 primAdd :: Val -> Val -> Asm Val
@@ -201,7 +221,7 @@ primAdd v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
   let oper = commute Sem.Add arg1 arg2
-  res <- codegen oper
+  res <- CG.codegen oper
   pure (valOfArg res)
   where
     commute op a b = if a < b then op a b else op b a -- TODO: should commute be in the Semantics?
@@ -211,7 +231,7 @@ primAnd v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
   let oper = commute Sem.And arg1 arg2
-  res <- codegen oper
+  res <- CG.codegen oper
   pure (valOfArg res)
   where
     commute op a b = if a < b then op a b else op b a
@@ -221,7 +241,7 @@ primEq v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
   let pred = commute Sem.Equal arg1 arg2
-  res <- codegenPred pred
+  res <- CG.codegenPred pred
   pure (valOfArg1 res)
   where
     commute op a b = if a < b then op a b else op b a

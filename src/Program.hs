@@ -10,7 +10,7 @@ import Data.Map (Map)
 import Data.Word (Word8)
 import Par4 (Par,noError,alts,many,some,sat)
 import Text.Printf (printf)
-import Util (look,extend)
+import Util (look,extend,zipCheck)
 import qualified Data.Char as Char (isAlpha)
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -52,11 +52,11 @@ data Closure = Closure { def :: Def, env :: Env }
 
 type Env = Map Id Value
 
-exec :: Prog -> Id -> Value
-exec (Prog defs) main = do
+exec :: Prog -> Id -> [Value] -> Value
+exec (Prog defs) main args = do
   let env = collectDefs initialEnv defs
   let f = look "exec" env main
-  apply f []
+  apply f args
 
 collectDefs :: Env -> [Def] -> Env
 collectDefs env = \case
@@ -109,7 +109,7 @@ applyPrim = \case
 applyClosure :: Closure -> [Value] -> Value
 applyClosure Closure{env,def} actuals = do
   let Def{formals,body} = def
-  let binds = zip formals actuals -- TODO: check length
+  let binds = zipCheck "applyClosure" formals actuals
   let env' = List.foldl (uncurry . extend) env binds
   eval env' body
 

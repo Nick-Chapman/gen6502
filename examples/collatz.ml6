@@ -26,5 +26,5 @@ let rec collatz_loop x =
     let x' = collatz_step x in
     collatz_loop x'
 
-let main () =
-  collatz_loop 3
+let main i =
+  collatz_loop i

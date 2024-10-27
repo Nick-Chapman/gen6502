@@ -12,9 +12,9 @@ module Prim : G.Prim.S = struct
   let oswrch x = printf "%c" (Char.chr x)
   let osnewl () = printf "\n"
 end
-let () = printf "Collatz.main()...\n"
+let arg = 7
+let () = printf "Collatz.main(%d)...\n" arg
 module Example = G.First (*Collatz*)
 module M = Example.F(Prim)
-let main = M.main
-let res = main ()
+let res = M.main arg
 let () = printf "res=%d\n" res
