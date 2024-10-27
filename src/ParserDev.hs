@@ -82,7 +82,7 @@ go prog = do
       when (not same) $ printf "*DIFF*\n"
       pure ()
 
-  mapM_ tryCode _best
+  mapM_ tryCode [ head _best ]
 
 
 selectCodeAlt :: [(Cost,Code)] -> IO [(Cost,Code)]
@@ -178,13 +178,13 @@ compileExp' need env exp = do
 
 needExp :: Env -> Exp -> Need
 needExp env = \case
-  Var x -> needVal (look "neededBy" env x)
+  Var x -> needVal (look "neededBy" env x) -- think this may fail because of how Let is treated below
   Num{} -> needNothing
   Str{} -> needNothing
   Unit -> needNothing
   App _ args -> foldl union needNothing (map (needExp env) args)
   Ite i t e -> undefined i t e
-  Let x rhs body -> undefined x rhs body
+  Let _x rhs body -> needExp env rhs `union` needExp env body
 
 
 ite :: Val -> Asm Val -> Asm Val -> Asm Val
