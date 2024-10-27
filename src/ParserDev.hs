@@ -18,7 +18,7 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 
 import qualified Semantics as Sem
-import qualified Codegen as CG
+import Codegen --(Need,needNothing,needName,needUnion,codegenNew,codegenPredNew,assign,codegenBranch)
 
 type Byte = Word8
 
@@ -28,16 +28,23 @@ main file = do
   let prog = parse gram6 s
   go prog
 
-
 -- select codegenerator (old/new)
-codegen :: Sem.Oper -> Asm Sem.Arg
---codegen = CG.codegen
-codegen = CG.codegenNew -- TODO: pass names free/required in continuation
+old :: Bool
+old = False
 
-codegenPred :: Sem.Pred -> Asm Sem.Arg1
---codegenPred = CG.codegenPred
-codegenPred = CG.codegenPredNew
+codegen :: Need -> Sem.Oper -> Asm Sem.Arg
+codegen need =
+  if old then codegen1 else
+    codegenNew need
 
+codegenPred :: Need -> Sem.Pred -> Asm Sem.Arg1
+codegenPred need =
+  if old then codegenPred1 else
+    codegenPredNew need
+
+
+union :: Need -> Need -> Need
+union = needUnion
 
 ----------------------------------------------------------------------
 -- go
@@ -103,35 +110,26 @@ generateCodeAlts argReg targetReg = \case
   Prog defs -> do
     let regs = [argReg]
     let (names,ss) = Sem.initSS regs -- TODO: this is weird
-    printf "ss=%s\n" (show ss)
+    --printf "ss=%s\n" (show ss)
     let argName = case names of [x] -> x; _ -> error "argName, not 1"
     let env = collectDefs initialEnv defs
     let main = look "compileProg" env "main"
+    let need0 = needNothing
     let
       asm = do
-        --preamble
-        v <- apply main [ValName8 argName]
+        when old $ (perhaps spillA)
+        v <- apply need0 main [ValName8 argName]
         arg <- getArg v
-        CG.assign targetReg arg
+        assign targetReg arg
         -- TODO: rts
 
     let temps = [Sem.ZeroPage n | n <- [7..19]]
     let state :: AsmState = AsmState { ss, temps }
     printf "calling runAsm...\n"
     let alts = runAsm state asm
-    pure alts
+    alts
 
 
-{-preamble :: Asm ()
-preamble = do
-  --perhaps CG.spillA
-  --perhaps CG.spillX
-  --perhaps CG.spillY
-  pure ()
-
---perhaps :: Asm () -> Asm ()
---perhaps a = Asm.Alt (pure ()) a
--}
 
 ----------------------------------------------------------------------
 -- compile
@@ -146,42 +144,65 @@ collectDefs env = \case
     let dval = ValMacro $ Macro { def, env }
     collectDefs (extend env name dval) defs
 
-applyMacro :: Macro -> [Val] -> Asm Val
-applyMacro Macro{env,def} actuals = do
-  let Def{formals,body} = def
-  let binds = zipCheck "applyMacro" formals actuals
-  let env' = List.foldl (uncurry . extend) env binds
-  compileExp env' body
+compileExp :: Need -> Env -> Exp -> Asm Val
+compileExp need env exp = do
+  --Asm.Io (printf "compileExp(%s): %s\n" (show need) (show exp))
+  v <- compileExp' need env exp
+  --Asm.Io (printf "compileExp(%s): %s --> %s\n" (show need) (show exp) (show v))
+  pure v
 
-compileExp :: Env -> Exp -> Asm Val
-compileExp env = \case
+compileExp' :: Need -> Env -> Exp -> Asm Val
+compileExp' need env exp = do
+ case exp of
   Var x -> pure (look "compileExp/Var" env x)
   Num n -> pure (ValNum n)
   Str s -> undefined s
   Unit -> undefined
-  App func args -> do
-    let f = look "compileExp/App" env func
-    actuals <- sequence [ compileExp env arg | arg <- args ]
-    apply f actuals
+  App func [arg1] -> do
+    let f = look "compileExp/App1" env func
+    act1 <- compileExp need env arg1
+    apply need f [act1]
+  App func [arg1,arg2] -> do
+    let f = look "compileExp/App2" env func
+    act1 <- compileExp (need `union` needExp env arg2) env arg1
+    act2 <- compileExp (need `union` needVal act1) env arg2
+    apply (need) f [act1,act2]
+  App _ xs -> error (show ("compileExp/App",length xs))
   Ite i t e -> do
-    i <- compileExp env i
-    ite i (compileExp env t) (compileExp env e)
+    i <- compileExp (need `union` needExp env t `union` needExp env e) env i
+    ite i (compileExp need env t) (compileExp need env e)
   Let x rhs body -> do
-    v <- compileExp env rhs
-    compileExp (extend env x v) body
+    v <- compileExp (need `union` needExp env body) env rhs
+    compileExp need (extend env x v) body
+
+
+needExp :: Env -> Exp -> Need
+needExp env = \case
+  Var x -> needVal (look "neededBy" env x)
+  Num{} -> needNothing
+  Str{} -> needNothing
+  Unit -> needNothing
+  App _ args -> foldl union needNothing (map (needExp env) args)
+  Ite i t e -> undefined i t e
+  Let x rhs body -> undefined x rhs body
+
 
 ite :: Val -> Asm Val -> Asm Val -> Asm Val
 ite i t e = do
   i <- getArg1 i
-  _p1 <- CG.codegenBranch i
+  _p1 <- codegenBranch i
   let _p2 = Sem.FlagZ
   Asm.Branch _p1 t e
 
 ----------------------------------------------------------------------
 -- (Compile time) values
 
-data Prim = Prim ([Val] -> Asm Val)
+data Prim = Prim (Need -> [Val] -> Asm Val)
+
+instance Show Prim where show Prim{} = "<PRIM>"
+
 data Macro = Macro { def :: Def, env :: Env }
+  deriving Show
 
 data Val
   = ValMacro Macro
@@ -189,6 +210,15 @@ data Val
   | ValNum Byte
   | ValName8 Sem.Name
   | ValName1 Sem.Name
+  deriving Show
+
+needVal :: Val -> Need
+needVal = \case
+  ValMacro{} -> needNothing
+  ValPrim{} -> needNothing
+  ValNum{} -> needNothing
+  ValName8 name -> needName name
+  ValName1{} -> error "needVal, name1 -- TODO"
 
 valOfArg :: Sem.Arg -> Val
 valOfArg = \case
@@ -200,14 +230,22 @@ valOfArg1 = \case
   Sem.Name1 name -> ValName1 name
   -- TODO: we expect to have Sem.Imm1 here
 
-apply :: Val -> [Val] -> Asm Val
-apply f args =
+apply :: Need -> Val -> [Val] -> Asm Val
+apply need f args =
   case f of
-    ValMacro m -> applyMacro m args
-    ValPrim (Prim f) -> f args
+    ValMacro m -> applyMacro need m args
+    ValPrim (Prim f) -> f need args
     ValNum{} -> error "apply, number"
     ValName8{} -> error "apply, name8"
     ValName1{} -> error "apply, name1"
+
+applyMacro :: Need -> Macro -> [Val] -> Asm Val
+applyMacro need Macro{env,def} actuals = do
+  let Def{formals,body} = def
+  let binds = zipCheck "applyMacro" formals actuals
+  let env' = List.foldl (uncurry . extend) env binds
+  compileExp need env' body
+
 
 initialEnv :: Env
 initialEnv = Map.fromList
@@ -218,55 +256,55 @@ initialEnv = Map.fromList
   , ("shl", ValPrim (unary primShl))
   ]
 
-primShl :: Val -> Asm Val
-primShl v1 = do
+primShl :: Need -> Val -> Asm Val
+primShl need v1 = do
   arg1 <- getArg v1
   let oper = Sem.Asl arg1
-  res <- codegen oper
+  res <- codegen need oper
   pure (valOfArg res)
 
-primShr :: Val -> Asm Val
-primShr v1 = do
+primShr :: Need -> Val -> Asm Val
+primShr need v1 = do
   arg1 <- getArg v1
   let oper = Sem.Lsr arg1
-  res <- codegen oper
+  res <- codegen need oper
   pure (valOfArg res)
 
-primAdd :: Val -> Val -> Asm Val
-primAdd v1 v2 = do
+primAdd :: Need -> Val -> Val -> Asm Val
+primAdd need v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
   let oper = commute Sem.Add arg1 arg2
-  res <- codegen oper
+  res <- codegen need oper
   pure (valOfArg res)
   where
     commute op a b = if a < b then op a b else op b a -- TODO: should commute be in the Semantics?
 
-primAnd :: Val -> Val -> Asm Val
-primAnd v1 v2 = do
+primAnd :: Need -> Val -> Val -> Asm Val
+primAnd need v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
   let oper = commute Sem.And arg1 arg2
-  res <- codegen oper
+  res <- codegen need oper
   pure (valOfArg res)
   where
     commute op a b = if a < b then op a b else op b a
 
-primEq :: Val -> Val -> Asm Val
-primEq v1 v2 = do
+primEq :: Need -> Val -> Val -> Asm Val
+primEq need v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
   let pred = commute Sem.Equal arg1 arg2
-  res <- codegenPred pred
+  res <- codegenPred need pred
   pure (valOfArg1 res)
   where
     commute op a b = if a < b then op a b else op b a
 
-unary :: (Val -> Asm Val) -> Prim
-unary op = Prim $ \case [a] -> op a; _ -> error "unary"
+unary :: (Need -> Val -> Asm Val) -> Prim
+unary op = Prim $ \need -> \case [a] -> op need a; _ -> error "unary"
 
-binary :: (Val -> Val -> Asm Val) -> Prim
-binary op = Prim $ \case [a,b] -> op a b; _ -> error "binary"
+binary :: (Need -> Val -> Val -> Asm Val) -> Prim
+binary op = Prim $ \need -> \case [a,b] -> op need a b; _ -> error "binary"
 
 getArg :: Val -> Asm Sem.Arg -- TODO: needs to be in Asm?
 getArg = \case

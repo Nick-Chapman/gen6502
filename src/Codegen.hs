@@ -1,10 +1,14 @@
 module Codegen
-  ( preamble, codegen, assign, Reg, Name, Arg(..)
+  ( perhaps, preamble
+  , assign, Reg, Name, Arg(..)
+  , codegenBranch
   , spillA, spillX, spillY
-  , codegenPred, codegenBranch
-  , codegenNew, codegenPredNew
+  , codegen1, codegenPred1 --old
+  , codegenNew, codegenPredNew --new
+  , Need, needNothing, needName, needUnion
   ) where
 
+import Text.Printf (printf)
 import Prelude hiding (exp,compare,and)
 import Asm (AsmState(..),Asm(..))
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
@@ -13,30 +17,57 @@ import Semantics (SemState,Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemant
 import Semantics (Arg1(..),Pred(..),makeSem1,Flag(..),lookupReg)
 --import Instruction
 
+import Data.Set (Set,member)
+import qualified Data.Set as Set
+
+
+data Need = Need { names :: Set Name }
+
+instance Show Need where
+  show Need{names} = show (Set.toList names)
+
+needNothing :: Need
+needNothing = Need { names = Set.empty }
+
+isNeeded :: Name -> Need -> Bool
+isNeeded name Need{names} = name `member` names
+
+needName :: Name -> Need
+needName name = Need { names = Set.singleton name }
+
+needUnion :: Need -> Need -> Need
+needUnion Need{names=ns1} Need{names=ns2} = Need {names = ns1 `Set.union` ns2 }
 
 ----------------------------------------------------------------------
 -- lazy spill only when necessary
 
-codegenNew :: Oper -> Asm Arg
-codegenNew oper =
+codegenNew :: Need -> Oper -> Asm Arg
+codegenNew need oper =
   alternatives
-  [ do maybeSpill RegA; driveA (Down oper) oper
-  , do maybeSpill RegX; driveX (Down oper) oper
-  , do maybeSpill RegY; driveY (Down oper) oper
+  [ do maybeSpill need RegA; driveA (Down oper) oper
+  , do maybeSpill need RegX; driveX (Down oper) oper
+  , do maybeSpill need RegY; driveY (Down oper) oper
   , driveZ (Down oper) oper
   , do numeric (Down oper) oper
   ]
 
-codegenPredNew :: Pred -> Asm Arg1
-codegenPredNew p = do
-  maybeSpill RegA
-  codegenPred p
+codegenPredNew :: Need -> Pred -> Asm Arg1
+codegenPredNew need pred = do
+  maybeSpill need RegA
+  codegenPred1 pred
 
-maybeSpill :: Reg -> Asm ()
-maybeSpill reg = do
+maybeSpill :: Need -> Reg -> Asm ()
+maybeSpill need reg = do
   whatsIn reg >>= \case
-    Nothing -> pure ()
-    Just _name -> spill reg -- TODO: only if name needed
+    Nothing -> do
+      --Io (printf "maybeSpill(%s): No need; it's empty\n" (show reg))
+      pure ()
+    Just name -> do
+      let b = isNeeded name need
+      if not b then pure () else do
+        let _ = Io (printf "maybeSpill--needed(%s): %s MEM %s\n" (show reg) (show name) (show need))
+        spill reg
+
   pure ()
 
 whatsIn :: Reg -> Asm (Maybe Name)
@@ -47,16 +78,16 @@ whatsIn reg = do
 spill :: Reg -> Asm ()
 spill = \case
   RegA -> spillA
-  RegX -> spillA
-  RegY -> spillA
+  RegX -> spillX
+  RegY -> spillY
   ZP{} -> error "spill-ZP"
 
 ----------------------------------------------------------------------
 -- predicates
 
 -- TODO: check if alreay computed
-codegenPred :: Pred -> Asm Arg1
-codegenPred p =
+codegenPred1 :: Pred -> Asm Arg1
+codegenPred1 p =
   -- TODO: select for diff predictes here
   cmp p p
 
@@ -64,7 +95,8 @@ codegenPred p =
 cmp :: Pred -> Pred -> Asm Arg1
 cmp p = \case
   Equal arg1 arg2 -> do
-    do loadA arg1; cmpIntoA p arg2 -- TODO: try either way!
+    --do loadA arg1; cmpIntoA p arg2 -- TODO: try either way! -okay...
+    alternatives [ do loadA arg1; cmpIntoA p arg2 , do loadA arg2; cmpIntoA p arg1 ]
 --  _ ->
 --    Nope
 
@@ -98,20 +130,20 @@ preamble = do
   perhaps spillX
   perhaps spillY
 
-codegen :: Oper -> Asm Arg
-codegen oper = do
+codegen1 :: Oper -> Asm Arg
+codegen1 oper = do
   ss <- querySS
   let xm = findSemOper ss oper
   case xm of
     Just name -> pure (Name name)
-    Nothing -> codegen1 (Down oper) oper
+    Nothing -> codegen1g (Down oper) oper
 
 data Down = Down (Oper)
 
 type Gen = Down -> Oper -> Asm Arg
 
-codegen1 :: Gen
-codegen1 = select
+codegen1g :: Gen
+codegen1g = select
   [ do driveA `conclude` perhaps spillA
   , do driveX `conclude` perhaps spillX
   , do driveY `conclude` perhaps spillY
@@ -369,6 +401,7 @@ sec = emitWithSemantics Sec noSemantics
 spillA :: Asm ()
 spillA = do
   z <- freshTemp
+  --Io (printf "spillA -> %s\n" (show z))
   trans (Sta z)
 
 spillX :: Asm ()
@@ -403,6 +436,7 @@ compute :: Down -> ICompute -> Asm Arg
 compute (Down form) i = do
   name <- freshName
   let sem = makeSem name form
+  --Io (printf "compute: %s = %s\n" (show name) (show form))
   emitWithSemantics (Compute i) (computeSemantics sem i)
   pure (Name name)
 
@@ -410,6 +444,7 @@ compare :: Pred -> ICompare -> Asm Arg1
 compare p i = do
   name <- freshName
   let sem1 = makeSem1 name p
+  --Io (printf "compare: %s = %s\n" (show name) (show p))
   emitWithSemantics (Compare i) (compareSemantics sem1 i)
   pure (Name1 name)
 

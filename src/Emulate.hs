@@ -77,6 +77,6 @@ step ms@MS{regs,flags} = do
     Compare i ->
       case i of
         Cmpz z -> upNZ flags (get a - get (ZP z))
-        Cmpi{} -> undefined ms
+        Cmpi (Immediate b) -> upNZ flags (get a - b)
     Branch flag code1 code2 ->
       steps ms (if testFlag flag then code1 else code2)

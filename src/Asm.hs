@@ -20,6 +20,7 @@ instance Applicative Asm where pure = Ret; (<*>) = ap
 instance Monad Asm where (>>=) = Bind
 
 data Asm a where
+  Io :: IO a -> Asm a
   Ret :: a -> Asm a
   Bind :: Asm a -> (a -> Asm b) -> Asm b
   Alt :: Asm a -> Asm a -> Asm a
@@ -28,21 +29,23 @@ data Asm a where
   Update :: (AsmState -> (a,AsmState)) -> Asm a
   Branch :: Flag -> Asm a -> Asm a -> Asm a
 
-runAsm :: AsmState -> Asm () -> [Code]
-runAsm q0 asm0 =
-  [ untree t
-  | n <- run asm0 q0 (\_q a -> [NDone a])
-  , t <- determinise n
-  ]
+runAsm :: AsmState -> Asm () -> IO [Code]
+runAsm q0 asm0 = do
+  ns <- run asm0 q0 (\_q a -> pure [NDone a])
+  pure [ untree t
+       | n <- ns
+       , t <- determinise n
+       ]
   where
-    run :: forall a r. Asm a -> AsmState -> (AsmState -> a -> [NCodeTree r]) -> [NCodeTree r]
+    run :: forall a r. Asm a -> AsmState -> (AsmState -> a -> IO [NCodeTree r]) -> IO [NCodeTree r]
     run = \case
+      Io io -> \q k -> do a <- io; k q a
       Bind m g -> \q k -> run m q $ \q a -> run (g a) q k
       Ret a -> \q k -> k q a
-      Emit i -> \q k -> [NDo i (k q ())]
-      Branch flag m1 m2 -> \q k -> [NBr flag (run m1 q k) (run m2 q k)]
-      Alt m1 m2 -> \q k -> run m1 q k ++ run m2 q k
-      Nope -> \_q _k -> []
+      Emit i -> \q k -> do ns <- k q (); pure [NDo i ns]
+      Branch flag m1 m2 -> \q k -> do ns1 <- run m1 q k; ns2 <- run m2 q k; pure [NBr flag ns1 ns2]
+      Alt m1 m2 -> \q k -> do ns1 <- run m1 q k; ns2 <- run m2 q k; pure (ns1 ++ ns2)
+      Nope -> \_q _k -> pure []
       Update m -> \q k -> let (x,q') = m q in k q' x
 
 

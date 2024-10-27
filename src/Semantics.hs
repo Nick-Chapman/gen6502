@@ -21,7 +21,7 @@ data Arg1 = Name1 Name -- = Yes | No | Name1 Name1
   deriving (Eq,Ord)
 
 data Pred = Equal Arg Arg
-  deriving (Eq)
+  deriving (Eq,Show)
 
 type Oper1 = Pred
 

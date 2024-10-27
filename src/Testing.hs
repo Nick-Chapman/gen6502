@@ -19,7 +19,7 @@ import qualified Data.Map as Map
 type EmuEnv = Map Var Reg
 
 -- Sequence the Compilation and Asm generation of all instruction sequences.
-compile :: EmuEnv -> Exp -> Reg -> [(Cost,Code)]
+compile :: EmuEnv -> Exp -> Reg -> IO [(Cost,Code)]
 compile mu exp target = do
   let (vars,regs) = unzip (Map.toList mu)
   let (names,ss) = initSS regs
@@ -27,8 +27,8 @@ compile mu exp target = do
   let temps = [ZeroPage n | n <- [7..19]]
   let asm = compileTarget env exp target
   let state = AsmState { ss, temps }
-  let xs = runAsm state asm
-  orderByCost xs
+  xs <- runAsm state asm
+  pure (orderByCost xs)
 
 -- TODO: produce results in cost order, rather than post-sorting
 orderByCost :: [Code] -> [(Cost,Code)]
@@ -74,7 +74,7 @@ run1 target mu ee (i,example) = do
   let eres = eval ee example
 
   -- Compile the example; generating all instruction sequences.
-  let rs = compile mu example target
+  rs <- compile mu example target
   --printf "#results=%d\n" (length rs)
 
   -- Error if we dont have at least one sequence.
