@@ -1,18 +1,14 @@
 module Testing (runTests) where
 
-import Asm (runAsm,AsmState(..))
-import Codegen (Arg(..))
-import Compile (compileTarget)
 import Control.Monad (when)
-import Cost (Cost,costOfCode,lessTime)
-import Data.List (sortBy)
+import Cost (Cost)
 import Data.Map (Map)
 import Emulate (MachineState(..),emulate)
 import Examples (examples)
 import Instruction (Code)
 import Language (Var,Exp(..),EvalEnv,eval,conv)
 import ParserDev (CC(..),orderByCost,collectDefs,deMacro,assembleMacro)
-import Semantics (Reg(..),ZeroPage(..),initSS)
+import Semantics (Reg(..))
 import Text.Printf (printf)
 import Util (look)
 import qualified Data.Map as Map
@@ -20,31 +16,24 @@ import qualified Program as P
 
 type EmuEnv = Map Var Reg
 
--- TODO: kill old compile code
-
 -- Sequence the Compilation and Asm generation of all instruction sequences.
-_compile :: EmuEnv -> Exp -> Reg -> IO [(Cost,Code)]
-_compile mu exp target = do
-  let (vars,regs) = unzip (Map.toList mu)
-  let (names,ss) = initSS regs
-  let env = Map.fromList [ (x,Name name) | (x,name) <- zip vars names ]
-  let temps = [ZeroPage n | n <- [7..19]]
-  let asm = compileTarget env exp target
-  let state = AsmState { ss, temps }
-  xs <- runAsm state asm
+
+compile :: Exp -> IO [(Cost,Code)]
+compile example = do
+  -- TODO: take formals and (reg)args from a passed env
+  let entryName = "example"
+  let formals = ["a","x","y","z","z2"]
+  -- TODO: build program def direct, rather than going via old exp
+  let def = P.Def entryName formals (conv example)
+  let prog = P.Prog [def]
+  let progEnv = collectDefs prog
+  let entry = deMacro (look "run1" progEnv entryName)
+  let target = RegA
+  let args = [RegA,RegX,RegY,ZP 1,ZP 2]
+  let cc = CC { args, target }
+  xs <- assembleMacro entry cc
   pure (orderByCost xs)
 
-
--- TODO: produce results in cost order, rather than post-sorting
-_orderByCost :: [Code] -> [(Cost,Code)]
-_orderByCost xs = do
-  sortByCost [ (costOfCode code, code) | code <- xs ]
-  where
-    sortByCost =
-      sortBy (\(c1,code1) (c2,code2) ->
-                 case lessTime c1 c2 of
-                   EQ -> compare code1 code2 -- order determinism of tests
-                   x -> x)
 
 runTests :: IO ()
 runTests = do
@@ -69,9 +58,6 @@ runTests = do
   -- Run a test for each example:
   mapM_ (run1 target env ee) (zip [1::Int ..] examples)
 
-t_old :: Bool
-t_old = False
-
 run1 :: Reg -> EmuEnv -> EvalEnv -> (Int,Exp) -> IO ()
 run1 target mu ee (i,example) = do
 
@@ -80,22 +66,8 @@ run1 target mu ee (i,example) = do
   -- Evaluate the example expression
   let eres = eval ee example
 
-  -- TODO: pull this out to a compile function
   -- Compile the example; generating all instruction sequences.
-  rs <-
-    if t_old then _compile mu example target else do
-      let entryName = "example"
-      let formals = ["a","x","y","z","z2"]
-      -- TODO: build program def direct, rather than going via old exp
-      let def = P.Def entryName formals (conv example)
-      let prog = P.Prog [def]
-      let progEnv = collectDefs prog
-      let entry = deMacro (look "run1" progEnv entryName)
-      let target = RegA
-      let args = [RegA,RegX,RegY,ZP 1,ZP 2]
-      let cc = CC { args, target }
-      xs <- assembleMacro entry cc
-      pure (orderByCost xs)
+  rs <- compile example
 
   printf "#results=%d\n" (length rs)
 
