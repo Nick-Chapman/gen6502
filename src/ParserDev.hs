@@ -30,8 +30,8 @@ main file = do
 
 -- select codegenerator (old/new)
 old :: Bool
-old = True -- needed for Testing
---old = False -- needed for collatz_two_steps
+--old = True -- needed for Testing
+old = False -- needed for collatz_two_steps
 
 codegen :: Need -> Sem.Oper -> Asm Sem.Arg
 codegen need =

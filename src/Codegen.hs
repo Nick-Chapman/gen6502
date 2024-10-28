@@ -241,14 +241,14 @@ addIntoA e = \case
 subtraction :: Gen
 subtraction = \e -> \case
   Sub arg1 arg2 -> do
-    --getOutOfOnlyA arg2
+    getOutOfOnlyA arg2
     loadA arg1
     subIntoA e arg2
   _ ->
     Nope
 
-_getOutOfOnlyA :: Arg -> Asm ()
-_getOutOfOnlyA = \case
+getOutOfOnlyA :: Arg -> Asm ()
+getOutOfOnlyA = \case
   Imm{} -> pure ()
   Name name -> do
     nowhereButA name >>= \case
@@ -352,12 +352,12 @@ inZP = \case
 
 getIntoZ :: Name -> Asm ZeroPage
 getIntoZ name = do
-  Located{z,x=_,y=_} <- locations name
+  Located{z,x,y} <- locations name
   case z of
     Just z -> pure z
     Nothing ->
-      --if x then do z <- freshTemp; trans (Stx z); pure z else
-        --if y then do z <- freshTemp; trans (Sty z); pure z else
+      if x then do z <- freshTemp; trans (Stx z); pure z else
+        if y then do z <- freshTemp; trans (Sty z); pure z else
           Nope
 
 
