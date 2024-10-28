@@ -96,7 +96,7 @@ run1 target mu ee (i,example) = do
       xs <- assembleMacro entry cc
       pure (orderByCost xs)
 
-  --printf "#results=%d\n" (length rs)
+  printf "#results=%d\n" (length rs)
 
   -- Error if we dont have at least one sequence.
   if length rs == 0 then error "#results==0" else pure ()

@@ -113,11 +113,8 @@ cmpIntoA :: Pred -> Arg -> Asm Arg1
 cmpIntoA p = \case
   Imm imm -> do compare p (Cmpi imm)
   Name name -> do
-    Located{z} <- locations name
-    -- only location: Z (not A,X,Y)
-    case z of
-      Just z -> do compare p (Cmpz z)
-      Nothing -> Nope
+    z <- getIntoZ name
+    compare p (Cmpz z)
 
 
 codegenBranch :: Arg1 -> Asm Flag
@@ -237,28 +234,39 @@ addIntoA :: Down -> Arg -> Asm Arg
 addIntoA e = \case
   Imm imm -> do clc; compute e (Adci imm)
   Name name -> do
-    Located{z} <- locations name
-    -- only location: Z (not A,X,Y)
-    case z of
-      Just z -> do clc; compute e (Adcz z)
-      Nothing -> Nope
+    z <- getIntoZ name
+    clc
+    compute e (Adcz z)
 
 subtraction :: Gen
 subtraction = \e -> \case
   Sub arg1 arg2 -> do
-    do loadA arg1; subIntoA e arg2
+    --getOutOfOnlyA arg2
+    loadA arg1
+    subIntoA e arg2
   _ ->
     Nope
+
+_getOutOfOnlyA :: Arg -> Asm ()
+_getOutOfOnlyA = \case
+  Imm{} -> pure ()
+  Name name -> do
+    nowhereButA name >>= \case
+      True -> spillA
+      False -> pure ()
+
+nowhereButA :: Name -> Asm Bool
+nowhereButA name = do
+  Located{a,x,y,z} <- locations name
+  pure $ a && not x && not y && (case z of Nothing -> True; Just{} -> False)
 
 subIntoA :: Down -> Arg -> Asm Arg
 subIntoA e = \case
   Imm imm -> do sec; compute e (Sbci imm)
   Name name -> do
-    Located{z} <- locations name
-    -- only location: Z (not A,X,Y)
-    case z of
-      Just z -> do sec; compute e (Sbcz z)
-      Nothing -> Nope
+    z <- getIntoZ name
+    sec
+    compute e (Sbcz z)
 
 and :: Gen
 and = \e -> \case
@@ -271,11 +279,8 @@ andIntoA :: Down -> Arg -> Asm Arg
 andIntoA e = \case
   Imm imm -> do compute e (Andi imm)
   Name name -> do
-    Located{z} <- locations name
-    -- only location: Z (not A,X,Y)
-    case z of
-      Just z -> do compute e (Andz z)
-      Nothing -> Nope
+    z <- getIntoZ name
+    compute e (Andz z)
 
 eor :: Gen
 eor = \e -> \case
@@ -288,11 +293,8 @@ eorIntoA :: Down -> Arg -> Asm Arg
 eorIntoA e = \case
   Imm imm -> do compute e (Eori imm)
   Name name -> do
-    Located{z} <- locations name
-    -- only location: Z (not A,X,Y)
-    case z of
-      Just z -> do compute e (Eorz z)
-      Nothing -> Nope
+    z <- getIntoZ name
+    compute e (Eorz z)
 
 
 commutativeBinOp :: (Arg -> Asm Arg) -> Arg -> Arg -> Asm Arg
@@ -346,6 +348,18 @@ inZP = \case
     case z of
       Just z -> pure z
       Nothing -> Nope
+
+
+getIntoZ :: Name -> Asm ZeroPage
+getIntoZ name = do
+  Located{z,x=_,y=_} <- locations name
+  case z of
+    Just z -> pure z
+    Nothing ->
+      --if x then do z <- freshTemp; trans (Stx z); pure z else
+        --if y then do z <- freshTemp; trans (Sty z); pure z else
+          Nope
+
 
 -- TODO: compile time constant folding
 

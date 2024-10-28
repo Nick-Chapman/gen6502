@@ -96,7 +96,7 @@ goEntry prog entryName = do
 checkCode :: Value -> CC -> [Byte] -> [Code] -> IO ()
 checkCode eres cc argBytes alts = do
   let all = orderByCost alts
-  best <- selectCodeAlt all
+  _best <- selectCodeAlt all
   let CC { args = argRegs, target = targetReg } = cc
   let regs = Map.fromList (zipCheck "setup-emu-env" argRegs argBytes)
   let ms0 = MS { regs, flags = Map.empty }
@@ -104,11 +104,13 @@ checkCode eres cc argBytes alts = do
     tryCode (cost,code) = do
       printf "%s: %s\n" (show cost) (show code)
       let mres = emulate ms0 code targetReg
-      printf "emulation -> %s\n" (show mres)
       let same = (VNum mres == eres)
-      when (not same) $ printf "*DIFF*\n"
+      when (not same) $ do
+        printf "emulation -> %s\n" (show mres)
+        printf "*DIFF*\n"
       pure ()
-  mapM_ tryCode [ head best ]
+  --mapM_ tryCode [ head _best ]
+  mapM_ tryCode _best
 
 selectCodeAlt :: [(Cost,Code)] -> IO [(Cost,Code)]
 selectCodeAlt ys = do
@@ -146,9 +148,10 @@ assembleMacro entry cc = do
 compileEntry :: Macro -> [Name] -> Reg -> Asm ()
 compileEntry entry argNames targetReg = do
   -- TODO: avoid this non-deterministic spilling...
-  perhaps (spillAnyContents Sem.RegA)
-  perhaps (spillAnyContents Sem.RegX)
-  perhaps (spillAnyContents Sem.RegY)
+  when old $ do
+    perhaps (spillAnyContents Sem.RegA)
+    perhaps (spillAnyContents Sem.RegX)
+    perhaps (spillAnyContents Sem.RegY)
   v <- apply needNothing (ValMacro entry) (map ValName8 argNames)
   arg <- getArg v
   assign targetReg arg

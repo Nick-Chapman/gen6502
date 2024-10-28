@@ -1,5 +1,5 @@
 
-top: dev-multi
+top: test
 
 ocaml-exec:
 	dune exec examples/main.exe

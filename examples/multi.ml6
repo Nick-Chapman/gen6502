@@ -7,3 +7,6 @@ let two a x =
 
 let three a x y =
   a + x + y
+
+let what a =
+  (a + 1) + (a + 1)
