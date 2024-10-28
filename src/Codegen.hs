@@ -139,13 +139,16 @@ preamble = do
   perhaps spillX
   perhaps spillY
 
-codegen1 :: Oper -> Asm Arg
-codegen1 oper = do
+_codegen1 :: Oper -> Asm Arg -- common sub expression elim
+_codegen1 oper = do
   ss <- querySS
   let xm = findSemOper ss oper
   case xm of
     Just name -> pure (Name name)
     Nothing -> codegen1g (Down oper) oper
+
+codegen1 :: Oper -> Asm Arg
+codegen1 oper = codegen1g (Down oper) oper
 
 data Down = Down (Oper)
 
