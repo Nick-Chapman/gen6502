@@ -47,34 +47,64 @@ union :: Need -> Need -> Need
 union = needUnion
 
 ----------------------------------------------------------------------
+-- calling convention
+
+data CC = CC { args :: [Reg], target :: Reg }
+
+pickCC :: Macro -> CC
+pickCC Macro { def = Def { formals } } = do
+  let target = Sem.RegA
+  let args = take (length formals) [Sem.RegA,Sem.RegX,Sem.RegY,Sem.ZP 0,Sem.ZP 1]
+  CC { args, target }
+
+----------------------------------------------------------------------
 -- go
 
 go :: Prog -> IO ()
 go prog = do
   print prog
+  let Prog defs = prog
+  let
+    entryNames =
+      [ name
+      | Def name _ _ <- defs
+      , name /= "even" -- Hack because we dont support (yet) entries which return bools
+      ]
+  mapM_ (goEntry prog) entryNames
+
+goEntry :: Prog -> Id -> IO ()
+goEntry prog entryName = do
+
+  printf "\n**[%s]**\n" entryName
+  let env = collectDefs prog
+  let entry = deMacro (look "go" env entryName)
+  let cc = pickCC entry
+  let CC { args = argRegs, target = targetReg } = cc
 
   -- evaluate/emulate on a specific argument value
-  let argByte = 7
-  let args = [VNum argByte]
-  let eres = exec prog "main" args
+  let argBytes = take (length argRegs) [7::Byte .. ]
+  let args = map VNum argBytes
+  let eres = exec prog entryName args
   printf "evaluation -> %s\n" (show eres)
 
-  --compile...
-  let argReg = Sem.RegA
-  let targetReg = Sem.RegX -- RegA; ZP 99 -- TODO: perhaps test various targets
+  --printf "compile...\n"
+  let (argNames,ss) = Sem.initSS argRegs -- TODO: this is weird
+  let asm = compileEntry entry argNames targetReg
 
-  printf "generateCode...\n"
-  xs <- generateCodeAlts argReg targetReg prog
-  printf "run asm -> #%d alts\n" (length xs)
+  --printf "generate code...\n"
+  let temps = [Sem.ZeroPage n | n <- [7..19]]
+  let state :: AsmState = AsmState { ss, temps }
+  xs <- runAsm state asm
+  printf "#%d alts\n" (length xs)
 
-  -- determine cost of eqch sequence
+  -- determine cost of each sequence
   let all = orderByCost xs
 
   _best <- selectCodeAlt all
   let
     tryCode (cost,code) = do
       printf "%s: %s\n" (show cost) (show code)
-      let regs = Map.fromList [ (argReg, argByte) ]
+      let regs = Map.fromList (zipCheck "setup-emu-env" argRegs argBytes)
       let ms0 = MS { regs, flags = Map.empty }
       let mres = emulate ms0 code targetReg
       printf "emulation -> %s\n" (show mres)
@@ -105,44 +135,24 @@ orderByCost xs = do
                    EQ -> compare code1 code2 -- order determinism of tests
                    x -> x)
 
-generateCodeAlts :: Sem.Reg -> Sem.Reg -> Prog -> IO [Code]
-generateCodeAlts argReg targetReg = \case
-  Prog defs -> do
-    let regs = [argReg]
-    let (names,ss) = Sem.initSS regs -- TODO: this is weird
-    --printf "ss=%s\n" (show ss)
-    let argName = case names of [x] -> x; _ -> error "argName, not 1"
-    let env = collectDefs initialEnv defs
-    let main = look "compileProg" env "main"
-    let need0 = needNothing
-    let
-      asm = do
-        when old $ (perhaps spillA)
-        v <- apply need0 main [ValName8 argName]
-        arg <- getArg v
-        assign targetReg arg
-        -- TODO: rts
 
-    let temps = [Sem.ZeroPage n | n <- [7..19]]
-    let state :: AsmState = AsmState { ss, temps }
-    printf "calling runAsm...\n"
-    let alts = runAsm state asm
-    alts
-
+compileEntry :: Macro -> [Name] -> Reg -> Asm ()
+compileEntry entry argNames targetReg = do
+  --when old $ (perhaps spillA)
+  -- TODO: avoid this non-deterministic spilling...
+  perhaps (spillAnyContents Sem.RegA)
+  perhaps (spillAnyContents Sem.RegX)
+  perhaps (spillAnyContents Sem.RegY)
+  v <- apply needNothing (ValMacro entry) (map ValName8 argNames)
+  arg <- getArg v
+  assign targetReg arg
+  -- TODO: rts
 
 
 ----------------------------------------------------------------------
 -- compile
 
 type Env = Map Id Val
-
-
-collectDefs :: Env -> [Def] -> Env
-collectDefs env = \case
-  [] -> env
-  def@Def{name}:defs -> do
-    let dval = ValMacro $ Macro { def, env }
-    collectDefs (extend env name dval) defs
 
 compileExp :: Need -> Env -> Exp -> Asm Val
 compileExp need env exp = do
@@ -212,6 +222,11 @@ data Val
   | ValName1 Sem.Name
   deriving Show
 
+deMacro :: Val -> Macro
+deMacro = \case
+  ValMacro m -> m
+  v -> error (printf "deMacro:%s" (show v))
+
 needVal :: Val -> Need
 needVal = \case
   ValMacro{} -> needNothing
@@ -242,10 +257,20 @@ apply need f args =
 applyMacro :: Need -> Macro -> [Val] -> Asm Val
 applyMacro need Macro{env,def} actuals = do
   let Def{formals,body} = def
-  let binds = zipCheck "applyMacro" formals actuals
+  let binds = zipCheck err formals actuals
+        where err = printf "applyMacro, formals=%s, actuals=%s" (show formals) (show actuals)
   let env' = List.foldl (uncurry . extend) env binds
   compileExp need env' body
 
+
+collectDefs :: Prog -> Env
+collectDefs (Prog defs) = loop initialEnv defs
+  where
+    loop env = \case
+      [] -> env
+      def@Def{name}:defs -> do
+        let dval = ValMacro $ Macro { def, env }
+        loop (extend env name dval) defs
 
 initialEnv :: Env
 initialEnv = Map.fromList

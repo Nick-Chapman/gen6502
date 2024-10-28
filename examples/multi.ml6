@@ -1,0 +1,9 @@
+
+let one a =
+  a + 1
+
+let two a x =
+  a + x
+
+let three a x y =
+  a + x + y

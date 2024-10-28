@@ -1,6 +1,7 @@
 module Language
   ( Exp(..),Form(..),Op1(..), Op2(..), Var, Pred(..)
   , EvalEnv, eval
+  , conv
   ) where
 
 import Data.Bits (xor)
@@ -8,6 +9,7 @@ import Data.Map (Map)
 import Data.Word (Word8)
 import Text.Printf (printf)
 import Util (look,extend)
+import qualified Program as P
 
 type Byte = Word8
 
@@ -74,3 +76,27 @@ instance Show a => Show (Form a) where
     Op2 Add e1 e2 -> printf "(%s + %s)" (show e1) (show e2)
     Op2 Sub e1 e2 -> printf "(%s - %s)" (show e1) (show e2)
     Op2 Xor e1 e2 -> printf "(%s ^ %s)" (show e1) (show e2)
+
+
+
+
+----------------------------------------------------------------------
+-- convert from old (Language) Exp into new Program, and compile that
+-- and then we can kill the old Language code
+
+conv :: Exp -> P.Exp
+conv = \case
+  Var x -> P.Var x
+  Let x rhs body -> undefined x rhs body
+  If pred e1 e2 -> P.Ite (convP pred) (conv e1 ) (conv e2)
+  Form form ->
+    case form of
+      Num n -> P.Num n
+      Op1 Asl exp1 -> P.App "shl" [conv exp1]
+      Op2 Add exp1 exp2 -> P.App "+" [conv exp1, conv exp2]
+      Op2 Sub exp1 exp2 -> P.App "-" [conv exp1, conv exp2]
+      Op2 Xor exp1 exp2 -> P.App "^" [conv exp1, conv exp2]
+
+convP :: Pred -> P.Exp
+convP = \case
+  Equal e1 e2 -> undefined e1 e2 --conv e1 == conv e2

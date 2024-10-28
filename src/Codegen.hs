@@ -5,6 +5,7 @@ module Codegen
   , spillA, spillX, spillY
   , codegen1, codegenPred1 --old
   , codegenNew, codegenPredNew --new
+  , spillAnyContents
   , Need, needNothing, needName, needUnion
   ) where
 
@@ -44,31 +45,38 @@ needUnion Need{names=ns1} Need{names=ns2} = Need {names = ns1 `Set.union` ns2 }
 codegenNew :: Need -> Oper -> Asm Arg
 codegenNew need oper =
   alternatives
-  [ do maybeSpill need RegA; driveA (Down oper) oper
-  , do maybeSpill need RegX; driveX (Down oper) oper
-  , do maybeSpill need RegY; driveY (Down oper) oper
+  [ do needSpill need RegA; driveA (Down oper) oper
+  , do needSpill need RegX; driveX (Down oper) oper
+  , do needSpill need RegY; driveY (Down oper) oper
   , driveZ (Down oper) oper
   , do numeric (Down oper) oper
   ]
 
 codegenPredNew :: Need -> Pred -> Asm Arg1
 codegenPredNew need pred = do
-  maybeSpill need RegA
+  needSpill need RegA
   codegenPred1 pred
 
-maybeSpill :: Need -> Reg -> Asm ()
-maybeSpill need reg = do
+needSpill :: Need -> Reg -> Asm ()
+needSpill need reg = do
   whatsIn reg >>= \case
     Nothing -> do
-      --Io (printf "maybeSpill(%s): No need; it's empty\n" (show reg))
+      --Io (printf "needSpill(%s): No need; it's empty\n" (show reg))
       pure ()
     Just name -> do
       let b = isNeeded name need
       if not b then pure () else do
-        let _ = Io (printf "maybeSpill--needed(%s): %s MEM %s\n" (show reg) (show name) (show need))
+        let _ = Io (printf "needSpill--needed(%s): %s MEM %s\n" (show reg) (show name) (show need))
         spill reg
 
   pure ()
+
+
+spillAnyContents :: Reg -> Asm ()
+spillAnyContents reg =
+  whatsIn reg >>= \case
+    Nothing -> pure ()
+    Just _ -> spill reg
 
 whatsIn :: Reg -> Asm (Maybe Name)
 whatsIn reg = do
