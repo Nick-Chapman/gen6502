@@ -3,19 +3,18 @@ module Semantics
   ( Immediate(..), ZeroPage(..), Reg(..)
   , Name, Arg(..), Oper(..), Sem, makeSem
   , Semantics, noSemantics, transfer, overwrite, overwriteI
+  -- TODO: remove the functions we dont need when CSE is removed
   , SemState, initSS, getFreshName, findSemState, findSemOper, lookupReg
-
   , Arg1(..), Pred(..), makeSem1,Sem1,Flag(..)
   ) where
 
 import Data.Map (Map)
-import Text.Printf (printf)
 import Data.Word (Word8)
+import Text.Printf (printf)
 import Util (look,extend)
 import qualified Data.Map as Map
 
 type Byte = Word8
-
 
 data Arg1 = Name1 Name -- = Yes | No | Name1 Name1
   deriving (Eq,Ord)
@@ -43,7 +42,7 @@ instance Show Arg where
     Name name -> show name
 
 data Oper
-  = Num Byte
+  = ONum Byte
   | Add Arg Arg
   | Sub Arg Arg
   | And Arg Arg
@@ -73,6 +72,7 @@ makeSem1 name oper = Sem1 { name, operM = Just oper }
 ----------------------------------------------------------------------
 -- Semantic state (map from Reg)
 
+-- TODO: remove Oper from range od env-Map. only needed for CSE-elim
 data SemState =
   SS { names :: [Name] -- just an int would be simpler!
      , env :: Map Reg Sem
@@ -137,7 +137,7 @@ overwrite sem reg ss@SS{env} = do ss { env = extend env reg sem }
 overwriteI :: Immediate -> Reg -> Semantics
 overwriteI (Immediate byte) dest ss = do
   let (name,ss') = getFreshName ss
-  let sem = Sem { name, operM = Just (Num byte) }
+  let sem = Sem { name, operM = Just (ONum byte) }
   update dest sem ss'
 
 ----------------------------------------------------------------------

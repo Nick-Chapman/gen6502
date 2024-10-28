@@ -1,6 +1,9 @@
-module ParserDev where --(main) where
+-- TODO: split out Compile module (once we have reclaimed that name from old Compile)
+
+module ParserDev (main,CC(..),orderByCost,collectDefs,deMacro,assembleMacro) where
 
 import Asm (AsmState(..),Asm,runAsm)
+import Codegen (Need,needNothing,needName,needUnion,codegenNew,codegenPredNew,assign,codegenBranch,codegen1,codegenPred1,spillAnyContents,perhaps)
 import Control.Monad (when)
 import Cost (Cost,costOfCode)
 import Data.List (sortBy)
@@ -10,15 +13,13 @@ import Emulate (MachineState(..),emulate)
 import Instruction (Code)
 import Par4 (parse)
 import Program (Prog(..),Def(..),Exp(..),Id,gram6,exec,Value(..))
+import Semantics (Oper(..),Arg(..),Arg1(..),Flag(..),Pred(..),Reg(..),Name,ZeroPage(..),Immediate(..),initSS)
 import Text.Printf (printf)
 import Util (look,extend,zipCheck)
-import qualified Asm
-import qualified Cost
+import qualified Asm (Asm(Branch))
+import qualified Cost (lessTime)
 import qualified Data.List as List
 import qualified Data.Map as Map
-
-import qualified Semantics as Sem
-import Codegen --(Need,needNothing,needName,needUnion,codegenNew,codegenPredNew,assign,codegenBranch)
 
 type Byte = Word8
 
@@ -28,17 +29,16 @@ main file = do
   let prog = parse gram6 s
   go prog
 
--- select codegenerator (old/new)
+-- TODO: kill old -- This compilw will always select new codegen
 old :: Bool
---old = True -- needed for Testing
 old = False -- needed for collatz_two_steps
 
-codegen :: Need -> Sem.Oper -> Asm Sem.Arg
+codegen :: Need -> Oper -> Asm Arg
 codegen need =
   if old then codegen1 else
     codegenNew need
 
-codegenPred :: Need -> Sem.Pred -> Asm Sem.Arg1
+codegenPred :: Need -> Pred -> Asm Arg1
 codegenPred need =
   if old then codegenPred1 else
     codegenPredNew need
@@ -54,8 +54,8 @@ data CC = CC { args :: [Reg], target :: Reg }
 
 pickCC :: Macro -> CC
 pickCC m = do
-  let target = Sem.RegA
-  let args = take (numberOfArgs m) [Sem.RegA,Sem.RegX,Sem.RegY,Sem.ZP 0,Sem.ZP 1]
+  let target = RegA
+  let args = take (numberOfArgs m) [RegA,RegX,RegY,ZP 0,ZP 1]
   CC { args, target }
 
 numberOfArgs :: Macro -> Int
@@ -138,20 +138,19 @@ orderByCost xs = do
 assembleMacro :: Macro -> CC -> IO [Code]
 assembleMacro entry cc = do
   let CC { args = argRegs, target = targetReg } = cc
-  let (argNames,ss) = Sem.initSS argRegs -- TODO: this is weird
+  let (argNames,ss) = initSS argRegs -- TODO: this is weird
   let asm = compileEntry entry argNames targetReg
-  let temps = [Sem.ZeroPage n | n <- [7..19]]
+  let temps = [ZeroPage n | n <- [7..19]]
   let state :: AsmState = AsmState { ss, temps }
   runAsm state asm
 
 
 compileEntry :: Macro -> [Name] -> Reg -> Asm ()
 compileEntry entry argNames targetReg = do
-  -- TODO: avoid this non-deterministic spilling...
   when old $ do
-    perhaps (spillAnyContents Sem.RegA)
-    perhaps (spillAnyContents Sem.RegX)
-    perhaps (spillAnyContents Sem.RegY)
+    perhaps (spillAnyContents RegA)
+    perhaps (spillAnyContents RegX)
+    perhaps (spillAnyContents RegY)
   v <- apply needNothing (ValMacro entry) (map ValName8 argNames)
   arg <- getArg v
   assign targetReg arg
@@ -211,12 +210,13 @@ ite :: Val -> Asm Val -> Asm Val -> Asm Val
 ite i t e = do
   i <- getArg1 i
   _p1 <- codegenBranch i
-  let _p2 = Sem.FlagZ
+  let _p2 = FlagZ
   Asm.Branch _p1 t e
 
 ----------------------------------------------------------------------
 -- (Compile time) values
 
+-- TODO: avoid functional rep for Prim. maybe just have string?
 data Prim = Prim (Need -> [Val] -> Asm Val)
 
 instance Show Prim where show Prim{} = "<PRIM>"
@@ -228,8 +228,8 @@ data Val
   = ValMacro Macro
   | ValPrim Prim
   | ValNum Byte
-  | ValName8 Sem.Name
-  | ValName1 Sem.Name
+  | ValName8 Name
+  | ValName1 Name
   deriving Show
 
 deMacro :: Val -> Macro
@@ -245,15 +245,15 @@ needVal = \case
   ValName8 name -> needName name
   ValName1{} -> error "needVal, name1 -- TODO"
 
-valOfArg :: Sem.Arg -> Val
+valOfArg :: Arg -> Val
 valOfArg = \case
-  Sem.Name name -> ValName8 name
-  Sem.Imm (Sem.Immediate i) -> ValNum i
+  Name name -> ValName8 name
+  Imm (Immediate i) -> ValNum i
 
-valOfArg1 :: Sem.Arg1 -> Val
+valOfArg1 :: Arg1 -> Val
 valOfArg1 = \case
-  Sem.Name1 name -> ValName1 name
-  -- TODO: we expect to have Sem.Imm1 here
+  Name1 name -> ValName1 name
+  -- TODO: we expect to have Imm1 here
 
 apply :: Need -> Val -> [Val] -> Asm Val
 apply need f args =
@@ -293,17 +293,18 @@ initialEnv = Map.fromList
   , ("shl", ValPrim (unary primShl))
   ]
 
+-- TODO: common up these prims
 primShl :: Need -> Val -> Asm Val
 primShl need v1 = do
   arg1 <- getArg v1
-  let oper = Sem.Asl arg1
+  let oper = Asl arg1
   res <- codegen need oper
   pure (valOfArg res)
 
 primShr :: Need -> Val -> Asm Val
 primShr need v1 = do
   arg1 <- getArg v1
-  let oper = Sem.Lsr arg1
+  let oper = Lsr arg1
   res <- codegen need oper
   pure (valOfArg res)
 
@@ -311,7 +312,7 @@ primAdd :: Need -> Val -> Val -> Asm Val
 primAdd need v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
-  let oper = commute Sem.Add arg1 arg2
+  let oper = commute Add arg1 arg2
   res <- codegen need oper
   pure (valOfArg res)
   where
@@ -321,7 +322,7 @@ primSub :: Need -> Val -> Val -> Asm Val
 primSub need v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
-  let oper = Sem.Sub arg1 arg2
+  let oper = Sub arg1 arg2
   res <- codegen need oper
   pure (valOfArg res)
 
@@ -329,7 +330,7 @@ primAnd :: Need -> Val -> Val -> Asm Val
 primAnd need v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
-  let oper = commute Sem.And arg1 arg2
+  let oper = commute And arg1 arg2
   res <- codegen need oper
   pure (valOfArg res)
   where
@@ -339,7 +340,7 @@ primEor :: Need -> Val -> Val -> Asm Val
 primEor need v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
-  let oper = commute Sem.Eor arg1 arg2
+  let oper = commute Eor arg1 arg2
   res <- codegen need oper
   pure (valOfArg res)
   where
@@ -350,7 +351,7 @@ primEq :: Need -> Val -> Val -> Asm Val
 primEq need v1 v2 = do
   arg1 <- getArg v1
   arg2 <- getArg v2
-  let pred = commute Sem.Equal arg1 arg2
+  let pred = commute Equal arg1 arg2
   res <- codegenPred need pred
   pure (valOfArg1 res)
   where
@@ -362,17 +363,17 @@ unary op = Prim $ \need -> \case [a] -> op need a; _ -> error "unary"
 binary :: (Need -> Val -> Val -> Asm Val) -> Prim
 binary op = Prim $ \need -> \case [a,b] -> op need a b; _ -> error "binary"
 
-getArg :: Val -> Asm Sem.Arg -- TODO: needs to be in Asm?
+getArg :: Val -> Asm Arg -- TODO: does not need to be in Asm
 getArg = \case
-  ValName8 name -> pure (Sem.Name name)
-  ValNum n -> pure (Sem.Imm (Sem.Immediate n))
+  ValName8 name -> pure (Name name)
+  ValNum n -> pure (Imm (Immediate n))
   ValName1{} -> error "getArg,Name1"
   ValMacro{} -> error "getArg,Macro"
   ValPrim{} -> error "getArg,Prim"
 
-getArg1 :: Val -> Asm Sem.Arg1
+getArg1 :: Val -> Asm Arg1
 getArg1 = \case
-  ValName1 name -> pure (Sem.Name1 name)
+  ValName1 name -> pure (Name1 name)
   ValNum{} -> error "getArg1,Num"
   ValName8{} -> error "getArg1,Name8"
   ValMacro{} -> error "getArg1,Macro"

@@ -9,18 +9,13 @@ module Codegen
   , Need, needNothing, needName, needUnion
   ) where
 
-import Text.Printf (printf)
-import Prelude hiding (exp,compare,and)
 import Asm (AsmState(..),Asm(..))
-import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
-import Semantics (SemState,Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemOper,findSemState)
-
-import Semantics (Arg1(..),Pred(..),makeSem1,Flag(..),lookupReg)
---import Instruction
-
 import Data.Set (Set,member)
+import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
+import Prelude hiding (exp,compare,and)
+import Semantics (SemState,Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemOper,findSemState,Arg1(..),Pred(..),makeSem1,Flag(..),lookupReg)
+import Text.Printf (printf)
 import qualified Data.Set as Set
-
 
 data Need = Need { names :: Set Name }
 
@@ -41,6 +36,8 @@ needUnion Need{names=ns1} Need{names=ns2} = Need {names = ns1 `Set.union` ns2 }
 
 ----------------------------------------------------------------------
 -- lazy spill only when necessary
+
+-- TODO: move to a more deterministic style of code generation
 
 codegenNew :: Need -> Oper -> Asm Arg
 codegenNew need oper =
@@ -69,9 +66,7 @@ needSpill need reg = do
       if not b then pure () else do
         let _ = Io (printf "needSpill--needed(%s): %s MEM %s\n" (show reg) (show name) (show need))
         spill reg
-
   pure ()
-
 
 spillAnyContents :: Reg -> Asm ()
 spillAnyContents reg =
@@ -94,20 +89,15 @@ spill = \case
 ----------------------------------------------------------------------
 -- predicates
 
--- TODO: check if alreay computed
 codegenPred1 :: Pred -> Asm Arg1
 codegenPred1 p =
   -- TODO: select for diff predictes here
   cmp p p
 
-
 cmp :: Pred -> Pred -> Asm Arg1
 cmp p = \case
   Equal arg1 arg2 -> do
-    --do loadA arg1; cmpIntoA p arg2 -- TODO: try either way! -okay...
     alternatives [ do loadA arg1; cmpIntoA p arg2 , do loadA arg2; cmpIntoA p arg1 ]
---  _ ->
---    Nope
 
 cmpIntoA :: Pred -> Arg -> Asm Arg1
 cmpIntoA p = \case
@@ -116,7 +106,7 @@ cmpIntoA p = \case
     z <- getIntoZ name
     compare p (Cmpz z)
 
-
+-- TODO: track Flags in Semantics
 codegenBranch :: Arg1 -> Asm Flag
 codegenBranch _ =
   -- This needs to find out which flag (if any) is holding the compute Arg1 predicate
@@ -125,7 +115,6 @@ codegenBranch _ =
   -- so lets just return it, and have emulation show when this is wrong
   --undefined
   pure FlagZ
-
 
 ----------------------------------------------------------------------
 -- instruction selection and code generation
@@ -136,7 +125,8 @@ preamble = do
   perhaps spillX
   perhaps spillY
 
-_codegen1 :: Oper -> Asm Arg -- common sub expression elim
+-- TODO: remove common sub expression elim
+_codegen1 :: Oper -> Asm Arg
 _codegen1 oper = do
   ss <- querySS
   let xm = findSemOper ss oper
@@ -144,6 +134,7 @@ _codegen1 oper = do
     Just name -> pure (Name name)
     Nothing -> codegen1g (Down oper) oper
 
+-- TODO: remove old codegen
 codegen1 :: Oper -> Asm Arg
 codegen1 oper = codegen1g (Down oper) oper
 
@@ -160,9 +151,10 @@ codegen1g = select
   , do numeric
   ]
 
+-- TODO: why do we need ONum at all, given Arg embeds Num/Immediate
 numeric :: Gen
 numeric _e = \case
-  Num n -> pure (Imm (Immediate n))
+  ONum n -> pure (Imm (Immediate n))
   _ -> Nope
 
 perhaps :: Asm () -> Asm ()
@@ -296,7 +288,6 @@ eorIntoA e = \case
     z <- getIntoZ name
     compute e (Eorz z)
 
-
 commutativeBinOp :: (Arg -> Asm Arg) -> Arg -> Arg -> Asm Arg
 commutativeBinOp doOpInA arg1 arg2 = do
   inAcc arg1 >>= \case
@@ -308,9 +299,8 @@ commutativeBinOp doOpInA arg1 arg2 = do
         if arg1 == arg2
         then do loadA arg1; doOpInA arg2
         else
-          alternatives [ do loadA arg1; doOpInA arg2 , do loadA arg2; doOpInA arg1 ] -- TEMP elide
-          --do loadA arg1; doOpInA arg2
-
+          -- TODO: be deterministic. no point trying bth ways if one will do
+          alternatives [ do loadA arg1; doOpInA arg2 , do loadA arg2; doOpInA arg1 ]
 
 incrementX :: Gen
 incrementX = \e -> \case
@@ -349,7 +339,6 @@ inZP = \case
       Just z -> pure z
       Nothing -> Nope
 
-
 getIntoZ :: Name -> Asm ZeroPage
 getIntoZ name = do
   Located{z,x,y} <- locations name
@@ -360,19 +349,12 @@ getIntoZ name = do
         if y then do z <- freshTemp; trans (Sty z); pure z else
           Nope
 
-
--- TODO: compile time constant folding
-
 loadA :: Arg -> Asm ()
 loadA arg = do
   loadA1 arg
-  -- Load sharing...
-
   -- TEMP elide load sharing
   -- perhaps $ do trans Tax -- doing one is a bit expensive (improves example 99)
   -- perhaps $ do trans Tay -- too expensive at the moment (when testing all persm!)
-
-
 
 loadA1 :: Arg -> Asm ()
 loadA1 = \case
@@ -415,6 +397,7 @@ loadY = \case
             if x then Nope else
               Nope
 
+-- TODO: track carry flag
 clc :: Asm ()
 clc = emitWithSemantics Clc noSemantics
 
@@ -457,6 +440,8 @@ inAcc = \case
 
 ----------------------------------------------------------------------
 -- generate code with computation effect
+
+-- TODO: track actual semantics in compute instructions & then check that codegen achieves that
 
 compute :: Down -> ICompute -> Asm Arg
 compute (Down form) i = do

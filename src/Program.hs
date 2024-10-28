@@ -1,3 +1,4 @@
+-- TODO: split parser, pretty-printer, and evaluator from Ast?
 module Program
   ( Prog(..), Def(..), Exp(..), Id
   , gram6

@@ -3,14 +3,13 @@ module Instruction
   , transferSemantics, computeSemantics, compareSemantics
   ) where
 
-import Semantics (Immediate(..),ZeroPage(..),Semantics,Sem,transfer,overwrite,overwriteI,noSemantics,Reg(..),Flag(..))
+import Semantics (Immediate(..),ZeroPage(..),Semantics,Sem,transfer,overwrite,overwriteI,noSemantics,Reg(..),Flag(..),Sem1)
 import Text.Printf (printf)
-
-import Semantics (Sem1)
 
 ----------------------------------------------------------------------
 -- instructions
 
+-- TODO: move to Linear code tree with explicit Done, as a step towards rts/jmp
 type Code = [Instruction]
 
 data Instruction = Tx ITransfer | Compute ICompute | Compare ICompare | Clc | Sec

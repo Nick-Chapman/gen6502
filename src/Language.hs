@@ -1,3 +1,5 @@
+
+-- TODO: kill this v1 language, now superseded by v2 Program
 module Language
   ( Exp(..),Form(..),Op1(..), Op2(..), Var, Pred(..)
   , EvalEnv, eval

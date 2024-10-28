@@ -1,5 +1,6 @@
 module Examples (examples) where
 
+-- TODO: These example should build Program directly, rather than go via old Language
 import Language (Var,Exp(..),Form(..),Op1(..),Op2(..),Pred(..))
 
 examples :: [Exp]
@@ -136,6 +137,7 @@ examples =
 
   , If (Equal x x) z z2
 
+  -- TODO: add collatz(step) examples + more!
   ]
 
   where

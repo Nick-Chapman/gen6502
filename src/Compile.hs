@@ -1,3 +1,5 @@
+
+-- TODO: kill this now unused v1 compile.
 module Compile
   ( compileTarget,Env
   ) where
@@ -43,7 +45,7 @@ compile env exp = do
 
     Form form -> case form of
 
-      Num n -> codegen1 (Sem.Num n)
+      Num n -> codegen1 (Sem.ONum n)
 
       Op1 op1 exp1 -> do
         arg1 <- compile env exp1

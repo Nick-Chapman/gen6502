@@ -11,16 +11,16 @@ import Emulate (MachineState(..),emulate)
 import Examples (examples)
 import Instruction (Code)
 import Language (Var,Exp(..),EvalEnv,eval,conv)
+import ParserDev (CC(..),orderByCost,collectDefs,deMacro,assembleMacro)
 import Semantics (Reg(..),ZeroPage(..),initSS)
 import Text.Printf (printf)
 import Util (look)
 import qualified Data.Map as Map
-
-import ParserDev
 import qualified Program as P
 
 type EmuEnv = Map Var Reg
 
+-- TODO: kill old compile code
 
 -- Sequence the Compilation and Asm generation of all instruction sequences.
 _compile :: EmuEnv -> Exp -> Reg -> IO [(Cost,Code)]
@@ -48,7 +48,6 @@ _orderByCost xs = do
 
 runTests :: IO ()
 runTests = do
-
 
   -- Variables used by the examples.
   let
@@ -81,11 +80,13 @@ run1 target mu ee (i,example) = do
   -- Evaluate the example expression
   let eres = eval ee example
 
+  -- TODO: pull this out to a compile function
   -- Compile the example; generating all instruction sequences.
   rs <-
     if t_old then _compile mu example target else do
       let entryName = "example"
       let formals = ["a","x","y","z","z2"]
+      -- TODO: build program def direct, rather than going via old exp
       let def = P.Def entryName formals (conv example)
       let prog = P.Prog [def]
       let progEnv = collectDefs prog
