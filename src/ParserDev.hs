@@ -186,7 +186,7 @@ compileExp' need env exp = do
     ite i (compileExp need env t) (compileExp need env e)
   Let x rhs body -> do
     v <- compileExp (need `union` needExp env body) env rhs
-    compileExp need (extend env x v) body
+    compileExp (need `union` needVal v) (extend env x v) body
 
 
 needExp :: Env -> Exp -> Need

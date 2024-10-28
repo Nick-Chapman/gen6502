@@ -53,8 +53,8 @@ codegenNew need oper =
   ]
 
 codegenPredNew :: Need -> Pred -> Asm Arg1
-codegenPredNew need pred = do
-  needSpill need RegA
+codegenPredNew _need pred = do
+  --needSpill need RegA -- DONT NEED TO DO THIS
   codegenPred1 pred
 
 needSpill :: Need -> Reg -> Asm ()
@@ -65,6 +65,7 @@ needSpill need reg = do
       pure ()
     Just name -> do
       let b = isNeeded name need
+      --Io (printf "needSpill--needed(%s): %s MEM %s --> %s\n" (show reg) (show name) (show need) (show b))
       if not b then pure () else do
         let _ = Io (printf "needSpill--needed(%s): %s MEM %s\n" (show reg) (show name) (show need))
         spill reg
