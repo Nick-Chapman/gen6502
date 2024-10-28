@@ -10,17 +10,21 @@ import Data.Map (Map)
 import Emulate (MachineState(..),emulate)
 import Examples (examples)
 import Instruction (Code)
-import Language (Var,Exp(..),EvalEnv,eval)
+import Language (Var,Exp(..),EvalEnv,eval,conv)
 import Semantics (Reg(..),ZeroPage(..),initSS)
 import Text.Printf (printf)
 import Util (look)
 import qualified Data.Map as Map
 
+import ParserDev
+import qualified Program as P
+
 type EmuEnv = Map Var Reg
 
+
 -- Sequence the Compilation and Asm generation of all instruction sequences.
-compile :: EmuEnv -> Exp -> Reg -> IO [(Cost,Code)]
-compile mu exp target = do
+_compile :: EmuEnv -> Exp -> Reg -> IO [(Cost,Code)]
+_compile mu exp target = do
   let (vars,regs) = unzip (Map.toList mu)
   let (names,ss) = initSS regs
   let env = Map.fromList [ (x,Name name) | (x,name) <- zip vars names ]
@@ -30,9 +34,10 @@ compile mu exp target = do
   xs <- runAsm state asm
   pure (orderByCost xs)
 
+
 -- TODO: produce results in cost order, rather than post-sorting
-orderByCost :: [Code] -> [(Cost,Code)]
-orderByCost xs = do
+_orderByCost :: [Code] -> [(Cost,Code)]
+_orderByCost xs = do
   sortByCost [ (costOfCode code, code) | code <- xs ]
   where
     sortByCost =
@@ -43,6 +48,7 @@ orderByCost xs = do
 
 runTests :: IO ()
 runTests = do
+
 
   -- Variables used by the examples.
   let
@@ -64,6 +70,8 @@ runTests = do
   -- Run a test for each example:
   mapM_ (run1 target env ee) (zip [1::Int ..] examples)
 
+t_old :: Bool
+t_old = False
 
 run1 :: Reg -> EmuEnv -> EvalEnv -> (Int,Exp) -> IO ()
 run1 target mu ee (i,example) = do
@@ -74,7 +82,20 @@ run1 target mu ee (i,example) = do
   let eres = eval ee example
 
   -- Compile the example; generating all instruction sequences.
-  rs <- compile mu example target
+  rs <-
+    if t_old then _compile mu example target else do
+      let entryName = "example"
+      let formals = ["a","x","y","z","z2"]
+      let def = P.Def entryName formals (conv example)
+      let prog = P.Prog [def]
+      let progEnv = collectDefs prog
+      let entry = deMacro (look "run1" progEnv entryName)
+      let target = RegA
+      let args = [RegA,RegX,RegY,ZP 1,ZP 2]
+      let cc = CC { args, target }
+      xs <- assembleMacro entry cc
+      pure (orderByCost xs)
+
   --printf "#results=%d\n" (length rs)
 
   -- Error if we dont have at least one sequence.

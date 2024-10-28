@@ -1,4 +1,4 @@
-module ParserDev (main) where
+module ParserDev where --(main) where
 
 import Asm (AsmState(..),Asm,runAsm)
 import Control.Monad (when)
@@ -30,7 +30,8 @@ main file = do
 
 -- select codegenerator (old/new)
 old :: Bool
-old = False
+old = True -- needed for Testing
+--old = False -- needed for collatz_two_steps
 
 codegen :: Need -> Sem.Oper -> Asm Sem.Arg
 codegen need =
@@ -52,10 +53,13 @@ union = needUnion
 data CC = CC { args :: [Reg], target :: Reg }
 
 pickCC :: Macro -> CC
-pickCC Macro { def = Def { formals } } = do
+pickCC m = do
   let target = Sem.RegA
-  let args = take (length formals) [Sem.RegA,Sem.RegX,Sem.RegY,Sem.ZP 0,Sem.ZP 1]
+  let args = take (numberOfArgs m) [Sem.RegA,Sem.RegX,Sem.RegY,Sem.ZP 0,Sem.ZP 1]
   CC { args, target }
+
+numberOfArgs :: Macro -> Int
+numberOfArgs Macro { def = Def { formals } } = length formals
 
 ----------------------------------------------------------------------
 -- go
@@ -79,41 +83,32 @@ goEntry prog entryName = do
   let env = collectDefs prog
   let entry = deMacro (look "go" env entryName)
   let cc = pickCC entry
-  let CC { args = argRegs, target = targetReg } = cc
 
-  -- evaluate/emulate on a specific argument value
-  let argBytes = take (length argRegs) [7::Byte .. ]
-  let args = map VNum argBytes
-  let eres = exec prog entryName args
+  -- evaluate/emulate for specific argument values
+  let argBytes = take (numberOfArgs entry) [7::Byte .. ]
+  let eres = exec prog entryName (map VNum argBytes)
   printf "evaluation -> %s\n" (show eres)
 
-  --printf "compile...\n"
-  let (argNames,ss) = Sem.initSS argRegs -- TODO: this is weird
-  let asm = compileEntry entry argNames targetReg
+  alts <- assembleMacro entry cc
+  printf "#%d alts\n" (length alts)
+  checkCode eres cc argBytes alts
 
-  --printf "generate code...\n"
-  let temps = [Sem.ZeroPage n | n <- [7..19]]
-  let state :: AsmState = AsmState { ss, temps }
-  xs <- runAsm state asm
-  printf "#%d alts\n" (length xs)
-
-  -- determine cost of each sequence
-  let all = orderByCost xs
-
-  _best <- selectCodeAlt all
+checkCode :: Value -> CC -> [Byte] -> [Code] -> IO ()
+checkCode eres cc argBytes alts = do
+  let all = orderByCost alts
+  best <- selectCodeAlt all
+  let CC { args = argRegs, target = targetReg } = cc
+  let regs = Map.fromList (zipCheck "setup-emu-env" argRegs argBytes)
+  let ms0 = MS { regs, flags = Map.empty }
   let
     tryCode (cost,code) = do
       printf "%s: %s\n" (show cost) (show code)
-      let regs = Map.fromList (zipCheck "setup-emu-env" argRegs argBytes)
-      let ms0 = MS { regs, flags = Map.empty }
       let mres = emulate ms0 code targetReg
       printf "emulation -> %s\n" (show mres)
       let same = (VNum mres == eres)
       when (not same) $ printf "*DIFF*\n"
       pure ()
-
-  mapM_ tryCode [ head _best ]
-
+  mapM_ tryCode [ head best ]
 
 selectCodeAlt :: [(Cost,Code)] -> IO [(Cost,Code)]
 selectCodeAlt ys = do
@@ -123,7 +118,6 @@ selectCodeAlt ys = do
       let best = takeWhile (\(cost,_) -> cost == lowestCost) ys
       printf "smallest cost = %s, from #%d alternatives\n" (show lowestCost) (length best)
       pure best
-
 
 orderByCost :: [Code] -> [(Cost,Code)]
 orderByCost xs = do
@@ -136,9 +130,21 @@ orderByCost xs = do
                    x -> x)
 
 
+----------------------------------------------------------------------
+-- compile
+
+assembleMacro :: Macro -> CC -> IO [Code]
+assembleMacro entry cc = do
+  let CC { args = argRegs, target = targetReg } = cc
+  let (argNames,ss) = Sem.initSS argRegs -- TODO: this is weird
+  let asm = compileEntry entry argNames targetReg
+  let temps = [Sem.ZeroPage n | n <- [7..19]]
+  let state :: AsmState = AsmState { ss, temps }
+  runAsm state asm
+
+
 compileEntry :: Macro -> [Name] -> Reg -> Asm ()
 compileEntry entry argNames targetReg = do
-  --when old $ (perhaps spillA)
   -- TODO: avoid this non-deterministic spilling...
   perhaps (spillAnyContents Sem.RegA)
   perhaps (spillAnyContents Sem.RegX)
@@ -148,9 +154,6 @@ compileEntry entry argNames targetReg = do
   assign targetReg arg
   -- TODO: rts
 
-
-----------------------------------------------------------------------
--- compile
 
 type Env = Map Id Val
 
@@ -188,7 +191,11 @@ compileExp' need env exp = do
 
 needExp :: Env -> Exp -> Need
 needExp env = \case
-  Var x -> needVal (look "neededBy" env x) -- think this may fail because of how Let is treated below
+  --Var x -> needVal (look "neededBy" env x) -- think this may fail because of how Let is treated below
+  Var x ->
+    case Map.lookup x env of
+      Nothing -> needNothing
+      Just v -> needVal v
   Num{} -> needNothing
   Str{} -> needNothing
   Unit -> needNothing
@@ -275,7 +282,9 @@ collectDefs (Prog defs) = loop initialEnv defs
 initialEnv :: Env
 initialEnv = Map.fromList
   [ ("&", ValPrim (binary primAnd))
+  , ("^", ValPrim (binary primEor))
   , ("+", ValPrim (binary primAdd))
+  , ("-", ValPrim (binary primSub))
   , ("==", ValPrim (binary primEq))
   , ("shr", ValPrim (unary primShr))
   , ("shl", ValPrim (unary primShl))
@@ -305,6 +314,14 @@ primAdd need v1 v2 = do
   where
     commute op a b = if a < b then op a b else op b a -- TODO: should commute be in the Semantics?
 
+primSub :: Need -> Val -> Val -> Asm Val
+primSub need v1 v2 = do
+  arg1 <- getArg v1
+  arg2 <- getArg v2
+  let oper = Sem.Sub arg1 arg2
+  res <- codegen need oper
+  pure (valOfArg res)
+
 primAnd :: Need -> Val -> Val -> Asm Val
 primAnd need v1 v2 = do
   arg1 <- getArg v1
@@ -314,6 +331,17 @@ primAnd need v1 v2 = do
   pure (valOfArg res)
   where
     commute op a b = if a < b then op a b else op b a
+
+primEor :: Need -> Val -> Val -> Asm Val
+primEor need v1 v2 = do
+  arg1 <- getArg v1
+  arg2 <- getArg v2
+  let oper = commute Sem.Eor arg1 arg2
+  res <- codegen need oper
+  pure (valOfArg res)
+  where
+    commute op a b = if a < b then op a b else op b a
+
 
 primEq :: Need -> Val -> Val -> Asm Val
 primEq need v1 v2 = do

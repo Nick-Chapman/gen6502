@@ -87,7 +87,7 @@ instance Show a => Show (Form a) where
 conv :: Exp -> P.Exp
 conv = \case
   Var x -> P.Var x
-  Let x rhs body -> undefined x rhs body
+  Let x rhs body -> P.Let x (conv rhs) (conv body)
   If pred e1 e2 -> P.Ite (convP pred) (conv e1 ) (conv e2)
   Form form ->
     case form of
@@ -99,4 +99,4 @@ conv = \case
 
 convP :: Pred -> P.Exp
 convP = \case
-  Equal e1 e2 -> undefined e1 e2 --conv e1 == conv e2
+  Equal e1 e2 -> P.App "==" [conv e1, conv e2]
