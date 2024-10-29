@@ -8,7 +8,11 @@ import Asm (AsmState(..),Asm(..))
 import Data.Set (Set,member)
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
 import Prelude hiding (exp,compare,and)
-import Semantics (SemState,Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemState,Arg1(..),Pred(..),makeSem1,Flag(..),lookupReg)
+import Semantics (SemState,Semantics,Reg(..),Flag(..),ZeroPage(..),Immediate(..),noSemantics
+                 ,Oper(..),Pred(..)
+                 ,Name,Arg(..),Arg1(..)
+                 ,getFreshName,findSemState,lookupReg)
+
 import qualified Data.Set as Set
 
 -- TODO: Need to sep module?
@@ -386,19 +390,16 @@ inAcc = \case
 -- TODO: track actual semantics in compute instructions & then check that codegen achieves that
 
 compute :: Down -> ICompute -> Asm Arg
-compute (Down form) i = do
+compute (Down __IGNORED_form) i = do -- TODO
   name <- freshName
-  -- TODO: we wont need to bake the oper/form into the semanics once we give up CSE-elim
-  let sem = makeSem name form
-  emitWithSemantics (Compute i) (computeSemantics sem i)
+  emitWithSemantics (Compute i) (computeSemantics name i)
   pure (Name name)
 
 compare :: Pred -> ICompare -> Asm Arg1
-compare p i = do
-  name <- freshName
-  let sem1 = makeSem1 name p
-  emitWithSemantics (Compare i) (compareSemantics sem1 i)
-  pure (Name1 name)
+compare __IGNORED_p i = do -- TODO
+  name <- freshName -- TODO: name1 should be different type to name??
+  emitWithSemantics (Compare i) (compareSemantics name i)
+  pure (Name1 name) -- oh, and not just here
 
 emitWithSemantics :: Instruction -> Semantics -> Asm ()
 emitWithSemantics i semantics = do

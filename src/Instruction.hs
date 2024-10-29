@@ -3,7 +3,7 @@ module Instruction
   , transferSemantics, computeSemantics, compareSemantics
   ) where
 
-import Semantics (Immediate(..),ZeroPage(..),Semantics,Sem,transfer,overwrite,overwriteI,noSemantics,Reg(..),Flag(..),Sem1)
+import Semantics (Immediate(..),ZeroPage(..),Semantics,transfer,overwrite,overwriteI,noSemantics,Reg(..),Flag(..),Name)
 import Text.Printf (printf)
 
 ----------------------------------------------------------------------
@@ -64,26 +64,28 @@ transferSemantics = \case
   Stx z -> transfer RegX (ZP z)
   Sty z -> transfer RegY (ZP z)
 
-computeSemantics :: Sem -> ICompute -> Semantics
-computeSemantics sem = \case
-  Adci{} -> overwrite sem RegA
-  Adcz{} -> overwrite sem RegA
-  Sbci{} -> overwrite sem RegA
-  Sbcz{} -> overwrite sem RegA
-  Andi{} -> overwrite sem RegA
-  Andz{} -> overwrite sem RegA
-  Eori{} -> overwrite sem RegA
-  Eorz{} -> overwrite sem RegA
-  Inx -> overwrite sem RegX
-  Iny -> overwrite sem RegY
-  Incz z -> overwrite sem (ZP z)
-  Asla -> overwrite sem RegA
-  Aslz z -> overwrite sem (ZP z)
-  Lsra -> overwrite sem RegA
-  Lsrz z -> overwrite sem (ZP z)
+-- TODO: These should return Asm Name, doing the freshName as required
+-- passing back the name, rather than taking the Sem(=Name)
+computeSemantics :: Name -> ICompute -> Semantics
+computeSemantics name = \case
+  Adci{} -> overwrite name RegA
+  Adcz{} -> overwrite name RegA
+  Sbci{} -> overwrite name RegA
+  Sbcz{} -> overwrite name RegA
+  Andi{} -> overwrite name RegA
+  Andz{} -> overwrite name RegA
+  Eori{} -> overwrite name RegA
+  Eorz{} -> overwrite name RegA
+  Inx -> overwrite name RegX
+  Iny -> overwrite name RegY
+  Incz z -> overwrite name (ZP z)
+  Asla -> overwrite name RegA
+  Aslz z -> overwrite name (ZP z)
+  Lsra -> overwrite name RegA
+  Lsrz z -> overwrite name (ZP z)
 
-compareSemantics :: Sem1 -> ICompare -> Semantics
-compareSemantics _sem1 = \case -- TODO
+compareSemantics :: Name -> ICompare -> Semantics
+compareSemantics _name = \case -- TODO
   Cmpz{} -> noSemantics -- undefined sem1
   Cmpi{} -> noSemantics --undefined
 

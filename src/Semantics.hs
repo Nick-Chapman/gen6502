@@ -1,12 +1,22 @@
 
 -- TODO: Is Semantics really the write name for the tracking of Names to regs?
 module Semantics
-  ( Immediate(..), ZeroPage(..), Reg(..)
-  , Name, Arg(..), Oper(..), Sem, makeSem
+  ( Immediate(..), ZeroPage(..), Reg(..), Flag(..)
+
   , Semantics, noSemantics, transfer, overwrite, overwriteI
-  -- TODO: remove the functions we dont need when CSE is removed
-  , SemState, initSS, getFreshName, findSemState, findSemOper, lookupReg
-  , Arg1(..), Pred(..), makeSem1,Sem1,Flag(..)
+
+  , SemState, initSS
+
+  , getFreshName
+  , findSemState
+  , lookupReg
+
+  -- enum of operations which compute 8bit and 1bit values
+  -- TODO: move these out of here
+  , Oper(..), Pred(..)
+
+  , Name, Arg(..), Arg1(..)
+
   ) where
 
 import Data.Map (Map)
@@ -22,8 +32,6 @@ data Arg1 = Name1 Name -- = Yes | No | Name1 Name1
 
 data Pred = Equal Arg Arg
   deriving (Eq,Show)
-
-type Oper1 = Pred
 
 
 ----------------------------------------------------------------------
@@ -55,41 +63,24 @@ data Oper
   -- because of the way Cogen is setup. This is not really a good thing!
   deriving (Eq,Show)
 
--- TODO: kill Sem/Sem1
-data Sem = Sem { name :: Name , operM :: Maybe Oper} deriving (Eq)
-data Sem1 = Sem1 { name :: Name , operM :: Maybe Oper1} deriving (Eq)
-
-instance Show Sem where
-  show Sem { name, operM } =
-    printf "%s=%s" (show name)
-    (case operM of
-       Just x -> show x
-       Nothing -> "*")
-
-makeSem :: Name -> Oper -> Sem
-makeSem name oper = Sem { name, operM = Just oper }
-
-makeSem1 :: Name -> Oper1 -> Sem1
-makeSem1 name oper = Sem1 { name, operM = Just oper }
-
 ----------------------------------------------------------------------
 -- Semantic state (map from Reg)
 
--- TODO: remove Oper from range od env-Map. only needed for CSE-elim
+-- TODO: maybe moves Names out of SS and just thread in Asm monad
+-- TODO: rename SS ?
 data SemState =
   SS { names :: [Name] -- just an int would be simpler! -- TODO: do it the simpler way
-     -- TODO: maybe moves Names out of SS and just thread in Asm monad
-     , env :: Map Reg Sem
+     , env :: Map Reg Name -- TODO: map to Arg not just Name
      }
 
 instance Show SemState where
   show SS{ env } = show env
 
-getRegInSS :: String -> Reg -> SemState -> Sem
+getRegInSS :: String -> Reg -> SemState -> Name
 getRegInSS tag reg SS{env} = look (printf "getRegInSS(%s)" tag) env reg
 
-update :: Reg -> Sem -> SemState -> SemState
-update reg sem ss@SS{env} = ss { env = extend env reg sem }
+update :: Reg -> Name -> SemState -> SemState
+update reg name ss@SS{env} = ss { env = extend env reg name }
 
 initSS :: [Reg] -> ([Name],SemState)
 initSS xs =  do
@@ -97,9 +88,10 @@ initSS xs =  do
   (names1,
    SS
     { names = names2
-    , env = Map.fromList [ (reg,Sem { name, operM = Nothing}) | (name,reg) <- zip names1 xs ]
+    , env = Map.fromList [ (reg,name) | (name,reg) <- zip names1 xs ]
     })
 
+-- TODO: move fresh name handling to Asm
 getFreshName :: SemState -> (Name,SemState)
 getFreshName ss@SS{names} =
   case names of
@@ -107,22 +99,17 @@ getFreshName ss@SS{names} =
     name1:names -> do
       (name1, ss { names })
 
+-- find all the places a name is located...
 findSemState :: SemState -> Name -> [Reg]
-findSemState SS{env} name1 =
-  [ reg | (reg,Sem{name}) <- Map.toList env, name == name1 ]
+findSemState SS{env} nameK =
+  [ reg | (reg,name) <- Map.toList env, name == nameK ]
 
--- TODO: we wont need this now we dont do CSE-elim
-findSemOper :: SemState -> Oper -> Maybe Name
-findSemOper SS{env} operK = do
-  case [ name | (_,Sem{name,operM=Just oper}) <- Map.toList env, oper == operK ] of
-    [] -> Nothing
-    name:_ -> Just name
-
+-- find if a name is located in a specific register...
 lookupReg :: SemState -> Reg -> Maybe Name
 lookupReg SS{env} reg =
   case Map.lookup reg env of
     Nothing -> Nothing
-    Just Sem{name} -> Just name
+    Just name -> Just name
 
 ----------------------------------------------------------------------
 -- Semantics (function over SemState)
@@ -136,14 +123,13 @@ transfer :: Reg -> Reg -> Semantics
 transfer src dest = \s -> update dest (getRegInSS tag src s) s
   where tag = printf "transfer:%s-->%s" (show src) (show dest)
 
-overwrite :: Sem -> Reg -> Semantics
-overwrite sem reg ss@SS{env} = do ss { env = extend env reg sem }
+overwrite :: Name -> Reg -> Semantics
+overwrite name reg ss@SS{env} = do ss { env = extend env reg name }
 
 overwriteI :: Immediate -> Reg -> Semantics
-overwriteI (Immediate byte) dest ss = do
+overwriteI (Immediate _IGNORED_byte) dest ss = do -- TODO: byte is ignored
   let (name,ss') = getFreshName ss
-  let sem = Sem { name, operM = Just (ONum byte) }
-  update dest sem ss'
+  update dest name ss'
 
 ----------------------------------------------------------------------
 -- Reg/Flag
