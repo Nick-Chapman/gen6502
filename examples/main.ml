@@ -14,7 +14,7 @@ module Prim : G.Prim.S = struct
 end
 let arg = 7
 let () = printf "Collatz.main(%d)...\n" arg
-module Example = G.First (*Collatz*)
+module Example = G.Collatz
 module M = Example.F(Prim)
 let res = M.main arg
 let () = printf "res=%d\n" res

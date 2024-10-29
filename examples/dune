@@ -9,7 +9,7 @@
   collatz.ml
   (progn
    (echo
-    "module F(X:Prim.S) : sig val main : X.byte -> X.byte end = struct open! X ")
+    "module F(X:Prim.S) = struct open! X ")
    (cat collatz.ml6)
    (echo "end"))))
 
@@ -18,7 +18,7 @@
   first.ml
   (progn
    (echo
-    "module F(X:Prim.S) : sig val main : X.byte -> X.byte end = struct open! X ")
+    "module F(X:Prim.S) = struct open! X ")
    (cat first.ml6)
    (echo "end"))))
 
