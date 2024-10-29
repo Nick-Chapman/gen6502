@@ -2,7 +2,9 @@
 
 module ParserDev (main,CC(..),orderByCost,collectDefs,deMacro,assembleMacro) where
 
+import Architecture (Reg(..),Flag(..),ZeroPage(..),Immediate(..))
 import Asm (AsmState(..),makeAsmState,Asm,runAsm)
+import Codegen (Oper(..) ,Pred(..),Need,needNothing,needName,needUnion,codegen,codegenPred,assign,codegenBranch)
 import Control.Monad (when)
 import Cost (Cost,costOfCode)
 import Data.List (sortBy)
@@ -12,9 +14,7 @@ import Emulate (MachineState(..),emulate)
 import Instruction (Code)
 import Par4 (parse)
 import Program (Prog(..),Def(..),Exp(..),Id,gram6,exec,Value(..))
-import Architecture (Reg(..),Flag(..),ZeroPage(..),Immediate(..))
-import Semantics (Name(..),Arg(..),Arg1(..),initSS)
-import Codegen (Oper(..) ,Pred(..),Need,needNothing,needName,needUnion,codegen,codegenPred,assign,codegenBranch)
+import SemState (Name(..),Arg(..),Arg1(..),initSS)
 import Text.Printf (printf)
 import Util (look,extend,zipCheck)
 import qualified Asm (Asm(Branch))

@@ -8,11 +8,11 @@ module Codegen -- TODO: rename Select. too many modules starting "Co.."
 import Architecture (Reg(..),Flag(..),ZeroPage(..),Immediate(..))
 import Asm (AsmState(..),Asm(..),updateSS,freshName)
 import Data.Set (Set,member)
+import Data.Word (Word8)
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
 import Prelude hiding (exp,compare,and)
-import Semantics (Name,Arg(..),Arg1(..),SemState,Semantics,noSemantics,findSemState,lookupReg,transferSemantics,computeSemantics,compareSemantics)
-
-import Data.Word (Word8)
+import SemState (Name,Arg(..),Arg1(..),SemState,findSemState,lookupReg)
+import Semantics (Semantics,noSemantics,transferSemantics,computeSemantics,compareSemantics)
 
 import qualified Data.Set as Set
 
