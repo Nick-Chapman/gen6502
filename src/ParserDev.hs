@@ -3,7 +3,7 @@
 module ParserDev (main,CC(..),orderByCost,collectDefs,deMacro,assembleMacro) where
 
 import Asm (AsmState(..),Asm,runAsm)
-import Codegen (Need,needNothing,needName,needUnion,codegenNew,codegenPredNew,assign,codegenBranch,codegen1,codegenPred1,spillAnyContents,perhaps)
+import Codegen (Need,needNothing,needName,needUnion,codegen,codegenPred,assign,codegenBranch)
 import Control.Monad (when)
 import Cost (Cost,costOfCode)
 import Data.List (sortBy)
@@ -28,21 +28,6 @@ main file = do
   s <- readFile file
   let prog = parse gram6 s
   go prog
-
--- TODO: kill old -- This compilw will always select new codegen
-old :: Bool
-old = False -- needed for collatz_two_steps
-
-codegen :: Need -> Oper -> Asm Arg
-codegen need =
-  if old then codegen1 else
-    codegenNew need
-
-codegenPred :: Need -> Pred -> Asm Arg1
-codegenPred need =
-  if old then codegenPred1 else
-    codegenPredNew need
-
 
 union :: Need -> Need -> Need
 union = needUnion
@@ -147,10 +132,6 @@ assembleMacro entry cc = do
 
 compileEntry :: Macro -> [Name] -> Reg -> Asm ()
 compileEntry entry argNames targetReg = do
-  when old $ do
-    perhaps (spillAnyContents RegA)
-    perhaps (spillAnyContents RegX)
-    perhaps (spillAnyContents RegY)
   v <- apply needNothing (ValMacro entry) (map ValName8 argNames)
   arg <- getArg v
   assign targetReg arg

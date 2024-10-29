@@ -1,4 +1,5 @@
 
+-- TODO: Is Semantics really the write name for the tracking of Names to regs?
 module Semantics
   ( Immediate(..), ZeroPage(..), Reg(..)
   , Name, Arg(..), Oper(..), Sem, makeSem
@@ -41,6 +42,7 @@ instance Show Arg where
     Imm imm -> show imm
     Name name -> show name
 
+-- TODO: Oper move out of here once Semantics tracks just which Names are in each register
 data Oper
   = ONum Byte
   | Add Arg Arg
@@ -53,6 +55,7 @@ data Oper
   -- because of the way Cogen is setup. This is not really a good thing!
   deriving (Eq,Show)
 
+-- TODO: kill Sem/Sem1
 data Sem = Sem { name :: Name , operM :: Maybe Oper} deriving (Eq)
 data Sem1 = Sem1 { name :: Name , operM :: Maybe Oper1} deriving (Eq)
 
@@ -74,7 +77,8 @@ makeSem1 name oper = Sem1 { name, operM = Just oper }
 
 -- TODO: remove Oper from range od env-Map. only needed for CSE-elim
 data SemState =
-  SS { names :: [Name] -- just an int would be simpler!
+  SS { names :: [Name] -- just an int would be simpler! -- TODO: do it the simpler way
+     -- TODO: maybe moves Names out of SS and just thread in Asm monad
      , env :: Map Reg Sem
      }
 
@@ -107,6 +111,7 @@ findSemState :: SemState -> Name -> [Reg]
 findSemState SS{env} name1 =
   [ reg | (reg,Sem{name}) <- Map.toList env, name == name1 ]
 
+-- TODO: we wont need this now we dont do CSE-elim
 findSemOper :: SemState -> Oper -> Maybe Name
 findSemOper SS{env} operK = do
   case [ name | (_,Sem{name,operM=Just oper}) <- Map.toList env, oper == operK ] of

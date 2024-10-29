@@ -1,11 +1,6 @@
-module Codegen
-  ( perhaps, preamble
-  , assign, Reg, Name, Arg(..)
-  , codegenBranch
-  , spillA, spillX, spillY
-  , codegen1, codegenPred1 --old
-  , codegenNew, codegenPredNew --new
-  , spillAnyContents
+module Codegen -- TODO: rename Select. too many modules starting "Co.."
+  ( assign, Reg, Name, Arg(..)
+  , codegenBranch, codegen, codegenPred
   , Need, needNothing, needName, needUnion
   ) where
 
@@ -13,10 +8,10 @@ import Asm (AsmState(..),Asm(..))
 import Data.Set (Set,member)
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
 import Prelude hiding (exp,compare,and)
-import Semantics (SemState,Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemOper,findSemState,Arg1(..),Pred(..),makeSem1,Flag(..),lookupReg)
-import Text.Printf (printf)
+import Semantics (SemState,Semantics,Reg(..),ZeroPage(..),Immediate(..),noSemantics,Name,Arg(..),makeSem,Oper(..),getFreshName,findSemState,Arg1(..),Pred(..),makeSem1,Flag(..),lookupReg)
 import qualified Data.Set as Set
 
+-- TODO: Need to sep module?
 data Need = Need { names :: Set Name }
 
 instance Show Need where
@@ -35,12 +30,9 @@ needUnion :: Need -> Need -> Need
 needUnion Need{names=ns1} Need{names=ns2} = Need {names = ns1 `Set.union` ns2 }
 
 ----------------------------------------------------------------------
--- lazy spill only when necessary
 
--- TODO: move to a more deterministic style of code generation
-
-codegenNew :: Need -> Oper -> Asm Arg
-codegenNew need oper =
+codegen :: Need -> Oper -> Asm Arg
+codegen need oper =
   alternatives
   [ do needSpill need RegA; driveA (Down oper) oper
   , do needSpill need RegX; driveX (Down oper) oper
@@ -49,30 +41,16 @@ codegenNew need oper =
   , do numeric (Down oper) oper
   ]
 
-codegenPredNew :: Need -> Pred -> Asm Arg1
-codegenPredNew _need pred = do
-  --needSpill need RegA -- DONT NEED TO DO THIS
-  codegenPred1 pred
-
 needSpill :: Need -> Reg -> Asm ()
 needSpill need reg = do
   whatsIn reg >>= \case
     Nothing -> do
-      --Io (printf "needSpill(%s): No need; it's empty\n" (show reg))
       pure ()
     Just name -> do
       let b = isNeeded name need
-      --Io (printf "needSpill--needed(%s): %s MEM %s --> %s\n" (show reg) (show name) (show need) (show b))
       if not b then pure () else do
-        let _ = Io (printf "needSpill--needed(%s): %s MEM %s\n" (show reg) (show name) (show need))
         spill reg
   pure ()
-
-spillAnyContents :: Reg -> Asm ()
-spillAnyContents reg =
-  whatsIn reg >>= \case
-    Nothing -> pure ()
-    Just _ -> spill reg
 
 whatsIn :: Reg -> Asm (Maybe Name)
 whatsIn reg = do
@@ -89,9 +67,9 @@ spill = \case
 ----------------------------------------------------------------------
 -- predicates
 
-codegenPred1 :: Pred -> Asm Arg1
-codegenPred1 p =
-  -- TODO: select for diff predictes here
+codegenPred :: Need -> Pred -> Asm Arg1
+codegenPred _need p = do
+  -- TODO: select for diff predictes here. <, =0 etc
   cmp p p
 
 cmp :: Pred -> Pred -> Asm Arg1
@@ -117,39 +95,10 @@ codegenBranch _ =
   pure FlagZ
 
 ----------------------------------------------------------------------
--- instruction selection and code generation
-
-preamble :: Asm ()
-preamble = do
-  perhaps spillA
-  perhaps spillX
-  perhaps spillY
-
--- TODO: remove common sub expression elim
-_codegen1 :: Oper -> Asm Arg
-_codegen1 oper = do
-  ss <- querySS
-  let xm = findSemOper ss oper
-  case xm of
-    Just name -> pure (Name name)
-    Nothing -> codegen1g (Down oper) oper
-
--- TODO: remove old codegen
-codegen1 :: Oper -> Asm Arg
-codegen1 oper = codegen1g (Down oper) oper
 
 data Down = Down (Oper)
 
 type Gen = Down -> Oper -> Asm Arg
-
-codegen1g :: Gen
-codegen1g = select
-  [ do driveA `conclude` perhaps spillA
-  , do driveX `conclude` perhaps spillX
-  , do driveY `conclude` perhaps spillY
-  , do driveZ
-  , do numeric
-  ]
 
 -- TODO: why do we need ONum at all, given Arg embeds Num/Immediate
 numeric :: Gen
@@ -157,8 +106,8 @@ numeric _e = \case
   ONum n -> pure (Imm (Immediate n))
   _ -> Nope
 
-perhaps :: Asm () -> Asm ()
-perhaps a = Alt (pure ()) a
+-- TODO: move to a more deterministic style of code generation
+-- ideally giving confidence in the completeness of the instruction selection
 
 driveA,driveX,driveY,driveZ :: Gen
 driveA = select [doublingA,halvingA,addition,subtraction,and,eor]
@@ -168,12 +117,6 @@ driveZ = select [incrementZ,doublingZ,halvingZ]
 
 select :: [Gen] -> Gen
 select gs = \e f -> alternatives [ g e f | g <- gs ]
-
-conclude :: Gen -> Asm () -> Gen
-conclude gen afterwards = \e f -> do
-  arg <- gen e f
-  afterwards
-  pure arg
 
 ----------------------------------------------------------------------
 -- assign a specific register (for calling conventions)
@@ -410,7 +353,6 @@ sec = emitWithSemantics Sec noSemantics
 spillA :: Asm ()
 spillA = do
   z <- freshTemp
-  --Io (printf "spillA -> %s\n" (show z))
   trans (Sta z)
 
 spillX :: Asm ()
@@ -446,8 +388,8 @@ inAcc = \case
 compute :: Down -> ICompute -> Asm Arg
 compute (Down form) i = do
   name <- freshName
+  -- TODO: we wont need to bake the oper/form into the semanics once we give up CSE-elim
   let sem = makeSem name form
-  --Io (printf "compute: %s = %s\n" (show name) (show form))
   emitWithSemantics (Compute i) (computeSemantics sem i)
   pure (Name name)
 
@@ -455,7 +397,6 @@ compare :: Pred -> ICompare -> Asm Arg1
 compare p i = do
   name <- freshName
   let sem1 = makeSem1 name p
-  --Io (printf "compare: %s = %s\n" (show name) (show p))
   emitWithSemantics (Compare i) (compareSemantics sem1 i)
   pure (Name1 name)
 
