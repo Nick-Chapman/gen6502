@@ -5,7 +5,7 @@ module Emulate
 import Data.Bits ((.&.),xor)
 import Data.Map (Map)
 import Data.Word (Word8)
-import Instruction (Code,Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
+import Instruction (Code(..),Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
 import Semantics (Reg(..),Flag(..),Immediate(..))
 import Util (look,extend)
 
@@ -21,8 +21,8 @@ emulate ms0 code locFinal = getReg (steps ms0 code) locFinal
 
 steps :: MachineState -> Code -> MachineState
 steps ms = \case
-  [] -> ms
-  i:is -> steps (step ms i) is
+  Done -> ms
+  Do i is -> steps (step ms i) is
 
 step :: MachineState -> Instruction -> MachineState
 step ms@MS{regs,flags} = do

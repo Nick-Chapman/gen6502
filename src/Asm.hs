@@ -5,7 +5,7 @@ module Asm
 import Control.Monad (ap,liftM)
 import Instruction (Code,Instruction)
 import Semantics (ZeroPage,SemState,Flag)
-import qualified Instruction as I (Instruction(Branch))
+import qualified Instruction as I (Code(..),Instruction(Branch))
 
 ----------------------------------------------------------------------
 -- AsmState
@@ -62,6 +62,6 @@ data CodeTree a = Done a | Do Instruction (CodeTree a) | Br Flag (CodeTree a) (C
 
 untree :: CodeTree () -> Code
 untree = \case
-  Done () -> []
-  Do i t -> i : untree t
-  Br flag t1 t2 -> [I.Branch flag (untree t1) (untree t2)]
+  Done () -> I.Done
+  Do i t -> I.Do i (untree t)
+  Br flag t1 t2 -> I.Do (I.Branch flag (untree t1) (untree t2)) I.Done

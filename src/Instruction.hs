@@ -1,5 +1,5 @@
 module Instruction
-  ( Code, Instruction(..), ITransfer(..), ICompute(..), ICompare(..)
+  ( Code(..), Instruction(..), ITransfer(..), ICompute(..), ICompare(..)
   , transferSemantics, computeSemantics, compareSemantics
   ) where
 
@@ -9,8 +9,8 @@ import Text.Printf (printf)
 ----------------------------------------------------------------------
 -- instructions
 
--- TODO: move to Linear code tree with explicit Done, as a step towards rts/jmp
-type Code = [Instruction]
+data Code = Done | Do Instruction Code
+  deriving (Eq,Ord)
 
 data Instruction = Tx ITransfer | Compute ICompute | Compare ICompare | Clc | Sec
   | Branch Flag
@@ -89,6 +89,15 @@ compareSemantics _sem1 = \case -- TODO
 
 ----------------------------------------------------------------------
 -- show instruction
+
+instance Show Code where
+  show = \case
+    Done -> "[]"
+    Do i code -> "[" ++ show i ++ loop code
+    where
+      loop = \case
+        Done -> "]"
+        Do i code -> "," ++ show i ++ loop code
 
 instance Show Instruction where
   show = \case

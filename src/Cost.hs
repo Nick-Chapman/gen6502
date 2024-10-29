@@ -2,7 +2,7 @@ module Cost
   ( Cost, lessSpace, lessTime, zero, add, cost, costOfCode
   ) where
 
-import Instruction (Code(),Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
+import Instruction (Code(..),Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
 import Text.Printf(printf)
 
 data Cost = Cost { space :: Int, time :: Int } deriving Eq
@@ -25,7 +25,9 @@ add :: Cost -> Cost -> Cost
 add (Cost {space=s1,time=t1}) (Cost {space=s2,time=t2}) = Cost { space = s1+s2, time = t1+t2 }
 
 costOfCode :: Code -> Cost
-costOfCode = foldl Cost.add Cost.zero . map cost
+costOfCode = \case
+  Done -> Cost.zero
+  Do i code -> Cost.add (cost i) (costOfCode code)
 
 cost :: Instruction -> Cost
 cost i = Cost { space, time } where (space,time) = space_time i
