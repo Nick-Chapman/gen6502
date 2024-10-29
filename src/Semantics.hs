@@ -1,5 +1,4 @@
 
--- TODO: Is Semantics really the write name for the tracking of Names to regs?
 module Semantics
   ( Immediate(..), ZeroPage(..), Reg(..), Flag(..)
 
@@ -7,11 +6,10 @@ module Semantics
 
   , SemState, initSS
 
-  , getFreshName
   , findSemState
   , lookupReg
 
-  , Name, Arg(..), Arg1(..)
+  , Name(..), Arg(..), Arg1(..)
 
   ) where
 
@@ -45,50 +43,31 @@ data Arg1 = Name1 Name -- = Yes | No | Name1 Name1
 ----------------------------------------------------------------------
 -- Semantic state (map from Reg)
 
--- TODO: maybe moves Names out of SS and just thread in Asm monad
 -- TODO: rename SS ?
-data SemState =
-  SS { names :: [Name] -- just an int would be simpler! -- TODO: do it the simpler way
-     , env :: Map Reg Name -- TODO: map to Arg not just Name
-     }
+-- TODO: example that knows a reg has an immediate in it
+data SemState = SS {env :: Map Reg Arg}
 
-instance Show SemState where
-  show SS{ env } = show env
-
-getRegInSS :: String -> Reg -> SemState -> Name
+getRegInSS :: String -> Reg -> SemState -> Arg
 getRegInSS tag reg SS{env} = look (printf "getRegInSS(%s)" tag) env reg
 
-update :: Reg -> Name -> SemState -> SemState
-update reg name ss@SS{env} = ss { env = extend env reg name }
+update :: Reg -> Arg -> SemState -> SemState
+update reg arg ss@SS{env} = ss { env = extend env reg arg }
 
-initSS :: [Reg] -> ([Name],SemState)
-initSS xs =  do
-  let (names1,names2) = splitAt (length xs) [ NameU { unique } | unique <- [1..] ]
-  (names1,
-   SS
-    { names = names2
-    , env = Map.fromList [ (reg,name) | (name,reg) <- zip names1 xs ]
-    })
-
--- TODO: move fresh name handling to Asm
-getFreshName :: SemState -> (Name,SemState)
-getFreshName ss@SS{names} =
-  case names of
-    [] -> error "run out of names" -- not possible!
-    name1:names -> do
-      (name1, ss { names })
+initSS :: Map Reg Arg -> SemState
+initSS env = SS { env }
 
 -- find all the places a name is located...
 findSemState :: SemState -> Name -> [Reg]
 findSemState SS{env} nameK =
-  [ reg | (reg,name) <- Map.toList env, name == nameK ]
+  [ reg | (reg,Name name) <- Map.toList env, name == nameK ]
 
 -- find if a name is located in a specific register...
 lookupReg :: SemState -> Reg -> Maybe Name
 lookupReg SS{env} reg =
   case Map.lookup reg env of
     Nothing -> Nothing
-    Just name -> Just name
+    Just Imm{} -> Nothing
+    Just (Name name) -> Just name
 
 ----------------------------------------------------------------------
 -- Semantics (function over SemState)
@@ -103,12 +82,10 @@ transfer src dest = \s -> update dest (getRegInSS tag src s) s
   where tag = printf "transfer:%s-->%s" (show src) (show dest)
 
 overwrite :: Name -> Reg -> Semantics
-overwrite name reg ss@SS{env} = do ss { env = extend env reg name }
+overwrite name reg ss@SS{env} = do ss { env = extend env reg (Name name) }
 
 overwriteI :: Immediate -> Reg -> Semantics
-overwriteI (Immediate _IGNORED_byte) dest ss = do -- TODO: byte is ignored
-  let (name,ss') = getFreshName ss
-  update dest name ss'
+overwriteI imm reg ss@SS{env}  = ss { env = extend env reg (Imm imm) }
 
 ----------------------------------------------------------------------
 -- Reg/Flag

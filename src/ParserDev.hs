@@ -2,7 +2,7 @@
 
 module ParserDev (main,CC(..),orderByCost,collectDefs,deMacro,assembleMacro) where
 
-import Asm (AsmState(..),Asm,runAsm)
+import Asm (AsmState(..),makeAsmState,Asm,runAsm)
 import Control.Monad (when)
 import Cost (Cost,costOfCode)
 import Data.List (sortBy)
@@ -12,7 +12,7 @@ import Emulate (MachineState(..),emulate)
 import Instruction (Code)
 import Par4 (parse)
 import Program (Prog(..),Def(..),Exp(..),Id,gram6,exec,Value(..))
-import Semantics (Name,Arg(..),Arg1(..) ,Reg(..),Flag(..),ZeroPage(..),Immediate(..),initSS)
+import Semantics (Name(..),Arg(..),Arg1(..) ,Reg(..),Flag(..),ZeroPage(..),Immediate(..),initSS)
 import Codegen (Oper(..) ,Pred(..),Need,needNothing,needName,needUnion,codegen,codegenPred,assign,codegenBranch)
 import Text.Printf (printf)
 import Util (look,extend,zipCheck)
@@ -123,16 +123,17 @@ orderByCost xs = do
 assembleMacro :: Macro -> CC -> IO [Code]
 assembleMacro entry cc = do
   let CC { args = argRegs, target = targetReg } = cc
-  let (argNames,ss) = initSS argRegs -- TODO: this is weird
-  let asm = compileEntry entry argNames targetReg
+  let numArgs = length argRegs
+  let argNames = [ Name (NameU u) | u <- [0..numArgs-1] ]
+  let ss = initSS (Map.fromList (zip argRegs argNames))
   let temps = [ZeroPage n | n <- [7..19]]
-  let state :: AsmState = AsmState { ss, temps }
+  let state :: AsmState = makeAsmState ss temps numArgs
+  let asm = compileEntry entry argNames targetReg
   runAsm state asm
 
-
-compileEntry :: Macro -> [Name] -> Reg -> Asm ()
+compileEntry :: Macro -> [Arg] -> Reg -> Asm ()
 compileEntry entry argNames targetReg = do
-  v <- apply needNothing (ValMacro entry) (map ValName8 argNames)
+  v <- apply needNothing (ValMacro entry) (map valOfArg argNames)
   arg <- getArg v
   assign targetReg arg
   -- TODO: rts

@@ -6,13 +6,13 @@ module Codegen -- TODO: rename Select. too many modules starting "Co.."
   , Need, needNothing, needName, needUnion
   ) where
 
-import Asm (AsmState(..),Asm(..))
+import Asm (AsmState(..),Asm(..),updateSS,freshName)
 import Data.Set (Set,member)
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
 import Prelude hiding (exp,compare,and)
 import Semantics (SemState,Semantics,Reg(..),Flag(..),ZeroPage(..),Immediate(..),noSemantics
                  ,Name,Arg(..),Arg1(..)
-                 ,getFreshName,findSemState,lookupReg)
+                 ,findSemState,lookupReg)
 
 import Data.Word (Word8)
 
@@ -410,17 +410,6 @@ emitWithSemantics :: Instruction -> Semantics -> Asm ()
 emitWithSemantics i semantics = do
   Emit i
   updateSS $ \ss -> ((), semantics ss)
-
-freshName :: Asm Name
-freshName = updateSS getFreshName
-
-updateSS :: (SemState -> (a,SemState)) -> Asm a
-updateSS m =
-  Update (\s -> do
-             let AsmState {ss} = s
-             let (a,ss') = m ss
-             let s' = s { ss = ss' }
-             (a,s'))
 
 querySS :: Asm SemState
 querySS =

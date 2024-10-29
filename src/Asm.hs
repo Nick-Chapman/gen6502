@@ -1,16 +1,36 @@
 module Asm
-  ( AsmState(..), Asm(..), runAsm
+  ( AsmState(..), makeAsmState, updateSS, freshName
+  , Asm(..), runAsm
   ) where
 
 import Control.Monad (ap,liftM)
 import Instruction (Code,Instruction)
-import Semantics (ZeroPage,SemState,Flag)
+import Semantics (ZeroPage,SemState,Flag,Name(..))
 import qualified Instruction as I (Code(..),Instruction(Branch))
 
 ----------------------------------------------------------------------
 -- AsmState
 
-data AsmState = AsmState { ss :: SemState, temps :: [ZeroPage] }
+data AsmState = AsmState
+  { ss :: SemState
+  , temps :: [ZeroPage]
+  , u :: Int -- counter for fresh names
+  }
+
+makeAsmState :: SemState -> [ZeroPage] -> Int -> AsmState
+makeAsmState ss temps u = AsmState { ss, temps, u  }
+
+freshName :: Asm Name
+freshName = Update f
+  where f s@AsmState { u } = (NameU {unique = u}, s { u = u + 1 })
+
+updateSS :: (SemState -> (a,SemState)) -> Asm a
+updateSS m =
+  Update (\s -> do
+             let AsmState {ss} = s
+             let (a,ss') = m ss
+             let s' = s { ss = ss' }
+             (a,s'))
 
 ----------------------------------------------------------------------
 -- Asm
