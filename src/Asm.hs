@@ -5,7 +5,7 @@ module Asm
 
 import Control.Monad (ap,liftM)
 import Instruction (Code,Instruction)
-import Semantics (ZeroPage,SemState,Flag,Name(..))
+import Architecture (ZeroPage,SemState,Flag,Name(..))
 import qualified Instruction as I (Code(..),Instruction(Branch))
 
 ----------------------------------------------------------------------

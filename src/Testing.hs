@@ -6,7 +6,7 @@ import Emulate (MachineState(..),emulate)
 import Examples (examples)
 import ParserDev (CC(..),orderByCost,collectDefs,deMacro,assembleMacro)
 import Program (Exp,Def(..),Prog(..),exec,Value(VNum))
-import Semantics (Reg(..))
+import Architecture (Reg(..))
 import Text.Printf (printf)
 import Util (look)
 import qualified Data.Map as Map

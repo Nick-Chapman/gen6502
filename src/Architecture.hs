@@ -1,5 +1,5 @@
 
-module Semantics
+module Architecture
   ( Immediate(..), ZeroPage(..), Reg(..), Flag(..)
 
   , Semantics, noSemantics, transfer, overwrite, overwriteI

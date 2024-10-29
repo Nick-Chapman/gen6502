@@ -10,7 +10,7 @@ import Asm (AsmState(..),Asm(..),updateSS,freshName)
 import Data.Set (Set,member)
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
 import Prelude hiding (exp,compare,and)
-import Semantics (SemState,Semantics,Reg(..),Flag(..),ZeroPage(..),Immediate(..),noSemantics
+import Architecture (SemState,Semantics,Reg(..),Flag(..),ZeroPage(..),Immediate(..),noSemantics
                  ,Name,Arg(..),Arg1(..)
                  ,findSemState,lookupReg)
 
