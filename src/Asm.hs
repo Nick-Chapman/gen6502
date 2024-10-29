@@ -3,9 +3,10 @@ module Asm
   , Asm(..), runAsm
   ) where
 
+import Architecture (ZeroPage,Flag)
 import Control.Monad (ap,liftM)
 import Instruction (Code,Instruction)
-import Architecture (ZeroPage,SemState,Flag,Name(..))
+import Semantics (Name(..),SemState)
 import qualified Instruction as I (Code(..),Instruction(Branch))
 
 ----------------------------------------------------------------------

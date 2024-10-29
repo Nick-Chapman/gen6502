@@ -1,18 +1,16 @@
 module Codegen -- TODO: rename Select. too many modules starting "Co.."
   ( assign
-  , Reg, Name, Arg(..) -- TODO: why re-export
   , Oper(..),Pred(..)
   , codegenBranch, codegen, codegenPred
   , Need, needNothing, needName, needUnion
   ) where
 
+import Architecture (Reg(..),Flag(..),ZeroPage(..),Immediate(..))
 import Asm (AsmState(..),Asm(..),updateSS,freshName)
 import Data.Set (Set,member)
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
 import Prelude hiding (exp,compare,and)
-import Architecture (SemState,Semantics,Reg(..),Flag(..),ZeroPage(..),Immediate(..),noSemantics
-                 ,Name,Arg(..),Arg1(..)
-                 ,findSemState,lookupReg)
+import Semantics (Name,Arg(..),Arg1(..),SemState,Semantics,noSemantics,findSemState,lookupReg)
 
 import Data.Word (Word8)
 

@@ -2,11 +2,11 @@ module Emulate
   ( MachineState(..), emulate,
   ) where
 
+import Architecture (Reg(..),Flag(..),Immediate(..))
 import Data.Bits ((.&.),xor)
 import Data.Map (Map)
 import Data.Word (Word8)
 import Instruction (Code(..),Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
-import Architecture (Reg(..),Flag(..),Immediate(..))
 import Util (look,extend)
 
 type Byte = Word8

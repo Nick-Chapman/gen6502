@@ -3,7 +3,8 @@ module Instruction
   , transferSemantics, computeSemantics, compareSemantics
   ) where
 
-import Architecture (Immediate(..),ZeroPage(..),Semantics,transfer,overwrite,overwriteI,noSemantics,Reg(..),Flag(..),Name)
+import Architecture (Immediate(..),ZeroPage(..),Reg(..),Flag(..))
+import Semantics (Name,Semantics,transfer,overwrite,overwriteI,noSemantics)
 import Text.Printf (printf)
 
 ----------------------------------------------------------------------
