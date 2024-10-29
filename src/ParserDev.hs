@@ -3,7 +3,7 @@
 module ParserDev (main,CC(..),orderByCost,collectDefs,deMacro,assembleMacro) where
 
 import Architecture (Reg(..),Flag(..),ZeroPage(..),Immediate(..))
-import Asm (AsmState(..),makeAsmState,Asm,runAsm)
+import Asm (AsmState,makeAsmState,Asm,runAsm)
 import Codegen (Oper(..) ,Pred(..),Need,needNothing,needName,needUnion,codegen,codegenPred,assign,codegenBranch)
 import Control.Monad (when)
 import Cost (Cost,costOfCode)

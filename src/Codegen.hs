@@ -6,13 +6,13 @@ module Codegen -- TODO: rename Select. too many modules starting "Co.."
   ) where
 
 import Architecture (Reg(..),Flag(..),ZeroPage(..),Immediate(..))
-import Asm (AsmState(..),Asm(..),updateSS,freshName)
+import Asm (Asm(..),querySS,freshTemp)
 import Data.Set (Set,member)
 import Data.Word (Word8)
-import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
+import Instruction (ITransfer(..),ICompute(..),ICompare(..))
 import Prelude hiding (exp,compare,and)
-import SemState (Name,Arg(..),Arg1(..),SemState,findSemState,lookupReg)
-import Semantics (Semantics,noSemantics,transferSemantics,computeSemantics,compareSemantics)
+import SemState (Name,Arg(..),Arg1(..),findSemState,lookupReg)
+import Semantics (clc, sec, trans, compute, compare)
 
 import qualified Data.Set as Set
 
@@ -347,13 +347,6 @@ loadY = \case
             if x then Nope else
               Nope
 
--- TODO: track carry flag
-clc :: Asm ()
-clc = emitWithSemantics Clc noSemantics
-
-sec :: Asm ()
-sec = emitWithSemantics Sec noSemantics
-
 ----------------------------------------------------------------------
 -- spilling...
 
@@ -372,9 +365,6 @@ spillY = do
   z <- freshTemp
   trans (Sty z)
 
-trans :: ITransfer -> Asm ()
-trans i = emitWithSemantics (Tx i) (transferSemantics i)
-
 alternatives :: [Asm a] -> Asm a
 alternatives = \case
   [] -> Nope
@@ -387,43 +377,8 @@ inAcc = \case
     Located{a} <- locations name
     pure a
 
-----------------------------------------------------------------------
--- generate code with computation effect
 
 -- TODO: track actual semantics in compute instructions & then check that codegen achieves that
-
-compute :: Down -> ICompute -> Asm Arg
-compute (Down __IGNORED_form) i = do -- TODO
-  name <- freshName
-  emitWithSemantics (Compute i) (computeSemantics name i)
-  pure (Name name)
-
-compare :: Pred -> ICompare -> Asm Arg1
-compare __IGNORED_p i = do -- TODO
-  name <- freshName -- TODO: name1 should be different type to name??
-  emitWithSemantics (Compare i) (compareSemantics name i)
-  pure (Name1 name) -- oh, and not just here
-
-emitWithSemantics :: Instruction -> Semantics -> Asm ()
-emitWithSemantics i semantics = do
-  Emit i
-  updateSS $ \ss -> ((), semantics ss)
-
-querySS :: Asm SemState
-querySS =
-  Update (\s -> do
-             let AsmState {ss} = s
-             (ss,s))
-
-freshTemp :: Asm ZeroPage
-freshTemp =
-  Update (\s -> do
-             let AsmState {temps} = s
-             case temps of
-               [] -> error "run out of temps"
-               (firstTemp:temps) -> do
-                 let s' = s { temps }
-                 (firstTemp, s'))
 
 ----------------------------------------------------------------------
 -- Located

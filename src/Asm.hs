@@ -1,5 +1,5 @@
 module Asm
-  ( AsmState(..), makeAsmState, updateSS, freshName
+  ( AsmState, makeAsmState, updateSS, freshName, emitWithSemantics, querySS, freshTemp
   , Asm(..), runAsm
   ) where
 
@@ -32,6 +32,28 @@ updateSS m =
              let (a,ss') = m ss
              let s' = s { ss = ss' }
              (a,s'))
+
+emitWithSemantics :: Instruction -> (SemState -> SemState) -> Asm ()
+emitWithSemantics i semantics = do
+  Emit i
+  updateSS $ \ss -> ((), semantics ss)
+
+querySS :: Asm SemState
+querySS =
+  Update (\s -> do
+             let AsmState {ss} = s
+             (ss,s))
+
+freshTemp :: Asm ZeroPage
+freshTemp =
+  Update (\s -> do
+             let AsmState {temps} = s
+             case temps of
+               [] -> error "run out of temps"
+               (firstTemp:temps) -> do
+                 let s' = s { temps }
+                 (firstTemp, s'))
+
 
 ----------------------------------------------------------------------
 -- Asm

@@ -1,10 +1,13 @@
 module Semantics
-  ( Semantics , noSemantics, transferSemantics, computeSemantics, compareSemantics
+  ( clc, sec, trans, compute, compare
   ) where
 
+import Prelude hiding (compare)
+
 import Architecture (Immediate,Reg(..))
-import Instruction (ITransfer(..),ICompute(..),ICompare(..))
-import SemState (Name(..),Arg(..),SemState,lookSS,updateSS)
+import Asm (Asm,freshName,emitWithSemantics)
+import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
+import SemState (Name(..),Arg(..),Arg1(..),SemState,lookSS,updateSS)
 import Text.Printf (printf)
 
 ----------------------------------------------------------------------
@@ -68,3 +71,29 @@ compareSemantics :: Name -> ICompare -> Semantics
 compareSemantics _name = \case -- TODO
   Cmpz{} -> noSemantics -- undefined sem1
   Cmpi{} -> noSemantics --undefined
+
+
+----------------------------------------------------------------------
+-- emitWithSemantics
+
+-- TODO: track carry flag
+clc :: Asm ()
+clc = emitWithSemantics Clc noSemantics
+
+sec :: Asm ()
+sec = emitWithSemantics Sec noSemantics
+
+trans :: ITransfer -> Asm ()
+trans i = emitWithSemantics (Tx i) (transferSemantics i)
+
+compute :: a -> ICompute -> Asm Arg
+compute _ignored i = do -- TODO: remove redundant arg
+  name <- freshName
+  emitWithSemantics (Compute i) (computeSemantics name i)
+  pure (Name name)
+
+compare :: a -> ICompare -> Asm Arg1
+compare _ignored i = do -- TODO: remove redundant arg
+  name <- freshName -- TODO: name1 should be different type to name??
+  emitWithSemantics (Compare i) (compareSemantics name i)
+  pure (Name1 name) -- oh, and not just here
