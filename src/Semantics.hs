@@ -11,10 +11,6 @@ module Semantics
   , findSemState
   , lookupReg
 
-  -- enum of operations which compute 8bit and 1bit values
-  -- TODO: move these out of here
-  , Oper(..), Pred(..)
-
   , Name, Arg(..), Arg1(..)
 
   ) where
@@ -26,13 +22,6 @@ import Util (look,extend)
 import qualified Data.Map as Map
 
 type Byte = Word8
-
-data Arg1 = Name1 Name -- = Yes | No | Name1 Name1
-  deriving (Eq,Ord)
-
-data Pred = Equal Arg Arg
-  deriving (Eq,Show)
-
 
 ----------------------------------------------------------------------
 -- Semantic values
@@ -50,18 +39,8 @@ instance Show Arg where
     Imm imm -> show imm
     Name name -> show name
 
--- TODO: Oper move out of here once Semantics tracks just which Names are in each register
-data Oper
-  = ONum Byte
-  | Add Arg Arg
-  | Sub Arg Arg
-  | And Arg Arg
-  | Eor Arg Arg
-  | Asl Arg
-  | Lsr Arg
-  -- TODO: note. adding a new Semantic form here causes no compile time errors.
-  -- because of the way Cogen is setup. This is not really a good thing!
-  deriving (Eq,Show)
+data Arg1 = Name1 Name -- = Yes | No | Name1 Name1
+  deriving (Eq,Ord)
 
 ----------------------------------------------------------------------
 -- Semantic state (map from Reg)

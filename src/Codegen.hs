@@ -1,5 +1,7 @@
 module Codegen -- TODO: rename Select. too many modules starting "Co.."
-  ( assign, Reg, Name, Arg(..)
+  ( assign
+  , Reg, Name, Arg(..) -- TODO: why re-export
+  , Oper(..),Pred(..)
   , codegenBranch, codegen, codegenPred
   , Need, needNothing, needName, needUnion
   ) where
@@ -9,11 +11,14 @@ import Data.Set (Set,member)
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..),transferSemantics,computeSemantics,compareSemantics)
 import Prelude hiding (exp,compare,and)
 import Semantics (SemState,Semantics,Reg(..),Flag(..),ZeroPage(..),Immediate(..),noSemantics
-                 ,Oper(..),Pred(..)
                  ,Name,Arg(..),Arg1(..)
                  ,getFreshName,findSemState,lookupReg)
 
+import Data.Word (Word8)
+
 import qualified Data.Set as Set
+
+type Byte = Word8
 
 -- TODO: Need to sep module?
 data Need = Need { names :: Set Name }
@@ -466,3 +471,21 @@ everywhere Located{a,x,y,z} = do
     , if y then [RegY] else []
     , case z of Just z -> [ZP z]; Nothing -> []
     ]
+
+----------------------------------------------------------------------
+-- Oper, Pred
+
+data Pred = Equal Arg Arg
+  deriving (Eq,Show)
+
+data Oper
+  = ONum Byte
+  | Add Arg Arg
+  | Sub Arg Arg
+  | And Arg Arg
+  | Eor Arg Arg
+  | Asl Arg
+  | Lsr Arg
+  -- TODO: note. adding a new Semantic form here causes no compile time errors.
+  -- because of the way Cogen is setup. This is not really a good thing!
+  deriving (Eq,Show)
