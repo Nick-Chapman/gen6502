@@ -1,7 +1,6 @@
 module Examples (examples) where
 
--- TODO: These example should build Program directly, rather than go via old Language
-import Language (Var,Exp(..),Form(..),Op1(..),Op2(..),Pred(..))
+import Program
 
 examples :: [Exp]
 examples =
@@ -122,37 +121,36 @@ examples =
   , xor (add x y) (add x y) -- syntactic CSE
   , xor (add x y) (add y x) -- semantic CSE
 
-  , let_ "xy" (add x y) (xor (var "xy") (var "xy"))
+  , Let "xy" (add x y) (xor (var "xy") (var "xy"))
 
-  , If (Equal x y) z z2
-  , asl (If (Equal x y) z z2)
+  , Ite (equal x y) z z2
+  , asl (Ite (equal x y) z z2)
 
-  , If (Equal a x) z (add (num 1) z)
+  , Ite (equal a x) z (add (num 1) z)
 
-  , add (If (Equal a x) a x) (num 1)
-  , asl (add (If (Equal a x) a x) (num 5))
-  , asl (add (If (Equal a x) a x) (num 1))
-  , asl (asl (add (If (Equal a x) a x) (num 5)))
-  -- , asl (asl (add (If (Equal a x) a x) (num 1)))
+  , add (Ite (equal a x) a x) (num 1)
+  , asl (add (Ite (equal a x) a x) (num 5))
+  , asl (add (Ite (equal a x) a x) (num 1))
+  , asl (asl (add (Ite (equal a x) a x) (num 5)))
+  -- , asl (asl (add (Ite (equal a x) a x) (num 1)))
 
-  , If (Equal x x) z z2
+  , Ite (equal x x) z z2
 
   -- TODO: add collatz(step) examples + more!
   ]
 
   where
-    num n = Form (Num n)
+    num n = Num n
     var x = Var x
-    add e1 e2 = Form (Op2 Add e1 e2)
-    sub e1 e2 = Form (Op2 Sub e1 e2)
-    xor e1 e2 = Form (Op2 Xor e1 e2)
-    asl e = Form (Op1 Asl e)
-
-    let_ :: Var -> Exp -> Exp -> Exp
-    let_ x rhs body = Let x rhs body
+    add e1 e2 = App "+" [e1,e2]
+    sub e1 e2 = App "-" [e1,e2]
+    xor e1 e2 = App "^" [e1,e2]
+    equal e1 e2 = App "==" [e1,e2]
+    asl e = App "shl" [e]
 
     a = var "a"
     x = var "x"
     y = var "y"
     z = var "z"
     z2 = var "z2"
+

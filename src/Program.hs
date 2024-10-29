@@ -95,13 +95,14 @@ apply f args =
 
 initialEnv :: Env
 initialEnv = Map.fromList
-  [ (x,VPrim x) | x <- ["&","+","-","==","shr","shl"] ]
+  [ (x,VPrim x) | x <- ["&","+","-","^","==","shr","shl"] ]
 
 applyPrim :: (String, [Value]) -> Value
 applyPrim = \case
   ("+",[VNum a,VNum b]) -> VNum (a+b)
+  ("-",[VNum a,VNum b]) -> VNum (a-b)
   ("&",[VNum a,VNum b]) -> VNum (a .&. b)
-  ("xor",[VNum a,VNum b]) -> VNum (a `xor` b)
+  ("^",[VNum a,VNum b]) -> VNum (a `xor` b)
   ("==",[VNum a,VNum b]) -> VBool (a == b)
   ("shl",[VNum a]) -> VNum (a `shiftL` 1)
   ("shr",[VNum a]) -> VNum (a `shiftR` 1)
@@ -127,7 +128,8 @@ instance Show Def where
     (printf "let %s %s =" name (intercalate " " formals))
     (pretty body)
 
-instance Show Exp where show = unlines . pretty
+instance Show Exp where show = intercalate "\n" . pretty
+
 
 pretty :: Exp -> Lines
 pretty = \case
@@ -135,6 +137,9 @@ pretty = \case
   Num n -> [show n]
   Str s -> [show s]
   Unit -> ["()"]
+  App func [arg1,arg2] | func `elem` infixes ->
+    bracket (jux (jux (pretty arg1) [func]) (pretty arg2))
+      where infixes = ["+","-","^","=="]
   App func args ->
     bracket (foldl jux [] ([func] : map pretty args))
   Ite i t e ->
