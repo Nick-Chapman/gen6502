@@ -86,14 +86,14 @@ sec = emitWithSemantics Sec noSemantics
 trans :: ITransfer -> Asm ()
 trans i = emitWithSemantics (Tx i) (transferSemantics i)
 
-compute :: a -> ICompute -> Asm Arg
-compute _ignored i = do -- TODO: remove redundant arg
+compute :: ICompute -> Asm Arg
+compute i = do
   name <- freshName
   emitWithSemantics (Compute i) (computeSemantics name i)
   pure (Name name)
 
-compare :: a -> ICompare -> Asm Arg1
-compare _ignored i = do -- TODO: remove redundant arg
+compare :: ICompare -> Asm Arg1
+compare i = do
   name <- freshName -- TODO: name1 should be different type to name??
   emitWithSemantics (Compare i) (compareSemantics name i)
   pure (Name1 name) -- oh, and not just here

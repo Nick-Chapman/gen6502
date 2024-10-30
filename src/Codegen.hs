@@ -41,11 +41,11 @@ needUnion Need{names=ns1} Need{names=ns2} = Need {names = ns1 `Set.union` ns2 }
 codegen :: Need -> Oper -> Asm Arg
 codegen need oper =
   alternatives
-  [ do needSpill need RegA; driveA (Down oper) oper
-  , do needSpill need RegX; driveX (Down oper) oper
-  , do needSpill need RegY; driveY (Down oper) oper
-  , driveZ (Down oper) oper
-  , do numeric (Down oper) oper
+  [ do needSpill need RegA; driveA oper
+  , do needSpill need RegX; driveX oper
+  , do needSpill need RegY; driveY oper
+  , driveZ oper
+  , do numeric oper
   ]
 
 needSpill :: Need -> Reg -> Asm ()
@@ -74,22 +74,22 @@ spill = \case
 ----------------------------------------------------------------------
 -- predicates
 
-codegenPred :: Need -> Pred -> Asm Arg1
+codegenPred :: Need -> Pred -> Asm Arg1 -- TODO: will this ever need 'Need'?
 codegenPred _need p = do
   -- TODO: select for diff predictes here. <, =0 etc
-  cmp p p
+  cmp p
 
-cmp :: Pred -> Pred -> Asm Arg1
-cmp p = \case
+cmp :: Pred -> Asm Arg1
+cmp = \case
   Equal arg1 arg2 -> do
-    alternatives [ do loadA arg1; cmpIntoA p arg2 , do loadA arg2; cmpIntoA p arg1 ]
+    alternatives [ do loadA arg1; cmpIntoA arg2 , do loadA arg2; cmpIntoA arg1 ]
 
-cmpIntoA :: Pred -> Arg -> Asm Arg1
-cmpIntoA p = \case
-  Imm imm -> do compare p (Cmpi imm)
+cmpIntoA :: Arg -> Asm Arg1
+cmpIntoA = \case
+  Imm imm -> do compare (Cmpi imm)
   Name name -> do
     z <- getIntoZ name
-    compare p (Cmpz z)
+    compare (Cmpz z)
 
 -- TODO: track Flags in Semantics
 codegenBranch :: Arg1 -> Asm Flag
@@ -103,13 +103,12 @@ codegenBranch _ =
 
 ----------------------------------------------------------------------
 
-data Down = Down (Oper)
 
-type Gen = Down -> Oper -> Asm Arg
+type Gen = Oper -> Asm Arg
 
 -- TODO: why do we need ONum at all, given Arg embeds Num/Immediate
 numeric :: Gen
-numeric _e = \case
+numeric = \case
   ONum n -> pure (Imm (Immediate n))
   _ -> Nope
 
@@ -123,7 +122,7 @@ driveY = select [incrementY]
 driveZ = select [incrementZ,doublingZ,halvingZ]
 
 select :: [Gen] -> Gen
-select gs = \e f -> alternatives [ g e f | g <- gs ]
+select gs = \f -> alternatives [ g f | g <- gs ]
 
 ----------------------------------------------------------------------
 -- assign a specific register (for calling conventions)
@@ -152,40 +151,40 @@ store target = \case
 -- instruction selection
 
 doublingA :: Gen
-doublingA = \e -> \case
-  Asl arg -> do loadA arg; compute e Asla
+doublingA = \case
+  Asl arg -> do loadA arg; compute Asla
   _ -> Nope
 
 halvingA :: Gen
-halvingA = \e -> \case
-  Lsr arg -> do loadA arg; compute e Lsra
+halvingA = \case
+  Lsr arg -> do loadA arg; compute Lsra
   _ -> Nope
 
 addition :: Gen
-addition = \e -> \case
+addition = \case
   Add arg1 arg2 -> do
     b1 <- inAcc arg1
     b2 <- inAcc arg2
     if b1 && b2
-    then compute e (Asla)
-    else commutativeBinOp (addIntoA e) arg1 arg2
+    then compute (Asla)
+    else commutativeBinOp addIntoA arg1 arg2
   _ ->
     Nope
 
-addIntoA :: Down -> Arg -> Asm Arg
-addIntoA e = \case
-  Imm imm -> do clc; compute e (Adci imm)
+addIntoA :: Arg -> Asm Arg
+addIntoA = \case
+  Imm imm -> do clc; compute (Adci imm)
   Name name -> do
     z <- getIntoZ name
     clc
-    compute e (Adcz z)
+    compute (Adcz z)
 
 subtraction :: Gen
-subtraction = \e -> \case
+subtraction = \case
   Sub arg1 arg2 -> do
     getOutOfOnlyA arg2
     loadA arg1
-    subIntoA e arg2
+    subIntoA arg2
   _ ->
     Nope
 
@@ -202,41 +201,41 @@ nowhereButA name = do
   Located{a,x,y,z} <- locations name
   pure $ a && not x && not y && (case z of Nothing -> True; Just{} -> False)
 
-subIntoA :: Down -> Arg -> Asm Arg
-subIntoA e = \case
-  Imm imm -> do sec; compute e (Sbci imm)
+subIntoA :: Arg -> Asm Arg
+subIntoA = \case
+  Imm imm -> do sec; compute (Sbci imm)
   Name name -> do
     z <- getIntoZ name
     sec
-    compute e (Sbcz z)
+    compute (Sbcz z)
 
 and :: Gen
-and = \e -> \case
+and = \case
   And arg1 arg2 ->
-    commutativeBinOp (andIntoA e) arg1 arg2
+    commutativeBinOp andIntoA arg1 arg2
   _ ->
     Nope
 
-andIntoA :: Down -> Arg -> Asm Arg
-andIntoA e = \case
-  Imm imm -> do compute e (Andi imm)
+andIntoA :: Arg -> Asm Arg
+andIntoA = \case
+  Imm imm -> do compute (Andi imm)
   Name name -> do
     z <- getIntoZ name
-    compute e (Andz z)
+    compute (Andz z)
 
 eor :: Gen
-eor = \e -> \case
+eor = \case
   Eor arg1 arg2 ->
-    commutativeBinOp (eorIntoA e) arg1 arg2
+    commutativeBinOp eorIntoA arg1 arg2
   _ ->
     Nope
 
-eorIntoA :: Down -> Arg -> Asm Arg
-eorIntoA e = \case
-  Imm imm -> do compute e (Eori imm)
+eorIntoA :: Arg -> Asm Arg
+eorIntoA = \case
+  Imm imm -> do compute (Eori imm)
   Name name -> do
     z <- getIntoZ name
-    compute e (Eorz z)
+    compute (Eorz z)
 
 commutativeBinOp :: (Arg -> Asm Arg) -> Arg -> Arg -> Asm Arg
 commutativeBinOp doOpInA arg1 arg2 = do
@@ -253,31 +252,31 @@ commutativeBinOp doOpInA arg1 arg2 = do
           alternatives [ do loadA arg1; doOpInA arg2 , do loadA arg2; doOpInA arg1 ]
 
 incrementX :: Gen
-incrementX = \e -> \case
-  Add arg (Imm 1) -> do loadX arg; compute e Inx
-  Add (Imm 1) arg -> do loadX arg; compute e Inx
+incrementX = \case
+  Add arg (Imm 1) -> do loadX arg; compute Inx
+  Add (Imm 1) arg -> do loadX arg; compute Inx
   _ -> Nope
 
 incrementY :: Gen
-incrementY = \e -> \case
-  Add arg (Imm 1) -> do loadY arg; compute e Iny
-  Add (Imm 1) arg -> do loadY arg; compute e Iny
+incrementY = \case
+  Add arg (Imm 1) -> do loadY arg; compute Iny
+  Add (Imm 1) arg -> do loadY arg; compute Iny
   _ -> Nope
 
 incrementZ :: Gen
-incrementZ e = \case
-  Add arg (Imm 1) -> do z <- inZP arg; compute e (Incz z)
-  Add (Imm 1) arg -> do z <- inZP arg; compute e (Incz z)
+incrementZ = \case
+  Add arg (Imm 1) -> do z <- inZP arg; compute (Incz z)
+  Add (Imm 1) arg -> do z <- inZP arg; compute (Incz z)
   _ -> Nope
 
 doublingZ :: Gen
-doublingZ = \e ->  \case
-  Asl arg -> do z <- inZP arg; compute e (Aslz z)
+doublingZ =  \case
+  Asl arg -> do z <- inZP arg; compute (Aslz z)
   _ -> Nope
 
 halvingZ :: Gen
-halvingZ = \e ->  \case
-  Lsr arg -> do z <- inZP arg; compute e (Lsrz z)
+halvingZ =  \case
+  Lsr arg -> do z <- inZP arg; compute (Lsrz z)
   _ -> Nope
 
 inZP :: Arg -> Asm ZeroPage
