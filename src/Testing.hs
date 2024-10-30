@@ -3,39 +3,36 @@ module Testing (runTests) where
 import Control.Monad (when)
 import Cost (Cost)
 import Emulate (MachineState(..),emulate)
-import Examples (examples)
-import ParserDev (CC(..),orderByCost,collectDefs,deMacro,assembleMacro)
-import Program (Exp,Def(..),Prog(..),exec,Value(VNum))
-import Architecture (Reg(..))
+import Examples (examples,Trip(..))
+import Par4 (parse)
+import ParserDev (CC(..),Macro(..),orderByCost,collectDefs,deMacro,assembleMacro)
+import Program (Def(..),exec,Value(VNum),gram6)
 import Text.Printf (printf)
 import Util (look)
 import qualified Data.Map as Map
 
 runTests :: IO ()
 runTests = do
-  mapM_ run1 (zip [1::Int ..] examples)
+  prog <- parse gram6 <$> readFile "examples/first.ml6"
+  mapM_ run1 (zip [1::Int ..] (examples prog))
 
-run1 :: (Int,Exp) -> IO ()
+run1 :: (Int,Examples.Trip) -> IO ()
 run1 (i,example) = do
 
-  printf "\n[%d]example = %s\n" i (show example)
+  let Trip{prog,entryName,cc} = example
+  let CC { args, target } = cc
 
-  -- construct the program from the example expression
-  let entryName = "example"
-  let formals = ["a","x","y","z","z2"]
-  let def = Def entryName formals example
-  let prog = Prog [def]
+  let progEnv = collectDefs prog
+  let entry = deMacro (look "run1" progEnv entryName)
+  let Macro{def} = entry
+  let Def{formals,body} = def
+  printf "\n[%d]example = %s\n" i (show body)
 
   -- Evaluate the example
-  let argBytes = [13,42,101,19,28]
+  let argBytes = take (length formals) [13,42,101,19,28]
   let eres = exec prog entryName (map VNum argBytes)
 
   -- Compile the example; generating all instruction sequences.
-  let progEnv = collectDefs prog
-  let entry = deMacro (look "run1" progEnv entryName)
-  let target = RegA
-  let args = [RegA,RegX,RegY,ZP 1,ZP 2]
-  let cc = CC { args, target }
   xs <- assembleMacro entry cc
   let rs = orderByCost xs
 
@@ -49,6 +46,7 @@ run1 (i,example) = do
   let best = takeWhile (\(cost,_) -> cost == lowestCost) rs
 
   -- setup initial machine-state for emulation
+
   let regs = Map.fromList (zip args argBytes)
   let flags = Map.empty
   let ms0 = MS { regs, flags }

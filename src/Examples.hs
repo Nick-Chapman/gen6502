@@ -1,9 +1,38 @@
-module Examples (examples) where
+module Examples (examples,Trip(..)) where
 
-import Program
+import Architecture (Reg(..))
+import ParserDev (CC(..))
+import Program (Id,Exp(..),Def(..),Prog(..))
 
-examples :: [Exp]
-examples =
+data Trip = Trip { prog :: Prog, entryName :: Id, cc :: CC }
+
+examples :: Prog -> [Trip]
+examples prog =
+  map exampleEntry astExamples ++
+  [ Trip prog "collatz_step" cc1
+    -- , Trip prog "collatz_two_steps" cc1 -- TODO, investigate BAD emulation 121, diff from evaluation 20
+  ]
+  where
+    cc1 = do
+      let target = RegA
+      let args = [RegA]
+      CC { args, target }
+
+
+exampleEntry :: Exp -> Trip
+exampleEntry example = do
+  -- construct a program/entry/cc triple from the example expression
+  let entryName = "example"
+  let formals = ["a","x","y","z","z2"]
+  let def = Def entryName formals example
+  let prog = Prog [def]
+  let target = RegA
+  let args = [RegA,RegX,RegY,ZP 1,ZP 2]
+  let cc = CC { args, target }
+  Trip { prog, entryName, cc }
+
+astExamples :: [Exp]
+astExamples =
   [ num 77
   , a
   , x

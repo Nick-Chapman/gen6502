@@ -518,3 +518,9 @@ else z2)
 #results=2
 {11/11}: [txa,stx 7,cmp 7,bz [lda 1] [lda 2]] --> [A]
 {11/11}: [txa,stx 7,cmp 7,bz [lda 1] [lda 2]] --> [A]
+
+[114]example = (if (even x)
+then (shr x)
+else (((shl x) + x) + 1))
+#results=6
+{20/21}: [sta 7,and #1,cmp #0,bz [lda 7,lsr a] [lda 7,asl a,clc,adc 7,clc,adc #1]] --> [A]

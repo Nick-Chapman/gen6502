@@ -1,6 +1,6 @@
 -- TODO: split out Compile module (once we have reclaimed that name from old Compile)
 
-module ParserDev (main,CC(..),orderByCost,collectDefs,deMacro,assembleMacro) where
+module ParserDev (main,CC(..),Macro(..),orderByCost,collectDefs,deMacro,assembleMacro) where
 
 import Architecture (Reg(..),Flag(..),ZeroPage(..),Immediate(..))
 import Asm (AsmState,makeAsmState,Asm,runAsm)
@@ -41,11 +41,15 @@ data CC = CC { args :: [Reg], target :: Reg }
 pickCC :: Macro -> CC
 pickCC m = do
   let target = RegA
-  let args = take (numberOfArgs m) [RegA,RegX,RegY,ZP 0,ZP 1]
+  let args = take (numberOfArgs m) [RegA,RegX,RegY,ZP 0,ZP 1] -- TODO: might need more!
   CC { args, target }
 
+
+macroFormals :: Macro -> [Id]
+macroFormals Macro { def = Def { formals } } = formals
+
 numberOfArgs :: Macro -> Int
-numberOfArgs Macro { def = Def { formals } } = length formals
+numberOfArgs m = length (macroFormals m)
 
 ----------------------------------------------------------------------
 -- go
