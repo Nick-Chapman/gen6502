@@ -1,7 +1,7 @@
 module Examples (examples,Trip(..)) where
 
 import Architecture (Reg(..))
-import ParserDev (CC(..))
+import Compile (CC(..))
 import Program (Id,Exp(..),Def(..),Prog(..))
 
 data Trip = Trip { prog :: Prog, entryName :: Id, cc :: CC }

@@ -1,7 +1,8 @@
 module Cost
-  ( Cost, lessSpace, lessTime, zero, add, cost, costOfCode
+  ( Cost, orderByCost, lessSpace, lessTime, zero, add, cost, costOfCode
   ) where
 
+import Data.List (sortBy)
 import Instruction (Code(..),Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
 import Text.Printf(printf)
 
@@ -9,6 +10,16 @@ data Cost = Cost { space :: Int, time :: Int } deriving Eq
 
 instance Show Cost where
   show Cost{space,time} = printf "%d/%d" space time
+
+orderByCost :: [Code] -> [(Cost,Code)]
+orderByCost xs = do
+  sortByCost [ (costOfCode code, code) | code <- xs ]
+  where
+    sortByCost =
+      sortBy (\(c1,code1) (c2,code2) ->
+                 case Cost.lessTime c1 c2 of
+                   EQ -> compare code1 code2 -- order determinism of tests
+                   x -> x)
 
 lessSpace  :: Cost -> Cost -> Ordering
 lessSpace (Cost {space=s1,time=t1}) (Cost {space=s2,time=t2}) =

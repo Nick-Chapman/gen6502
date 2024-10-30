@@ -1,11 +1,11 @@
 module Testing (runTests) where
 
 import Control.Monad (when)
-import Cost (Cost)
+import Cost (Cost,orderByCost)
 import Emulate (MachineState(..),emulate)
 import Examples (examples,Trip(..))
 import Par4 (parse)
-import ParserDev (CC(..),Macro(..),orderByCost,collectDefs,deMacro,assembleMacro)
+import Compile (CC(..),Macro(..),collectDefs,deMacro,assembleMacro)
 import Program (Def(..),exec,Value(VNum),gram6)
 import Text.Printf (printf)
 import Util (look)
