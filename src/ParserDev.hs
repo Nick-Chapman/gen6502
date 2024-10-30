@@ -1,6 +1,7 @@
 module ParserDev (main,CC(..),Macro(..),collectDefs,deMacro,assembleMacro) where
 
 import Architecture (Reg(..))
+import Compile (CC(..),Macro(..),collectDefs,deMacro,assembleMacro)
 import Control.Monad (when)
 import Cost (Cost,orderByCost)
 import Data.Word (Word8)
@@ -12,33 +13,17 @@ import Text.Printf (printf)
 import Util (look,zipCheck)
 import qualified Data.Map as Map
 
-import Compile
-
 type Byte = Word8
 
-main :: FilePath -> IO ()
-main file = do
-  s <- readFile file
+main :: String -> IO ()
+main entryName = do
+  s <- readFile "examples/examples.ml6"
   let prog = parse gram6 s
-  go prog
+  --print prog
+  go prog entryName
 
-----------------------------------------------------------------------
--- go
-
-go :: Prog -> IO ()
-go prog = do
-  print prog
-  let Prog defs = prog
-  let
-    entryNames =
-      [ name
-      | Def name _ _ <- defs
-      , name /= "even" -- Hack because we dont support (yet) entries which return bools
-      ]
-  mapM_ (goEntry prog) entryNames
-
-goEntry :: Prog -> Id -> IO ()
-goEntry prog entryName = do
+go :: Prog -> Id -> IO ()
+go prog entryName = do
 
   printf "\n**[%s]**\n" entryName
   let env = collectDefs prog
@@ -53,7 +38,6 @@ goEntry prog entryName = do
   alts <- assembleMacro entry cc
   printf "#%d alts\n" (length alts)
   checkCode eres cc argBytes alts
-
 
 
 macroFormals :: Macro -> [Id]

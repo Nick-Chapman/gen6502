@@ -1,16 +1,11 @@
 
-top: test
+top: regression
 
 ocaml-exec:
 	dune exec examples/main.exe
-
-test: regression
-
-dev-%: src/*.hs examples/%.ml6
-	stack run dev examples/$*.ml6
 
 regression: the.out
 	git diff the.out
 
 the.out: src/*.hs examples/examples.ml6
-	stack run test > $@
+	stack run > $@

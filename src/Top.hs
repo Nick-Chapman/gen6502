@@ -6,19 +6,15 @@ import qualified ParserDev
 
 main :: IO ()
 main = do
-  --putStrLn "*gen6502*"
   args <- getArgs
   case (parseCommandLine args) of
     RunTests -> Testing.runTests
-    ParserDev file -> ParserDev.main file
+    ParserDev entryName -> ParserDev.main entryName
 
-data Mode = RunTests | ParserDev FilePath
+data Mode = RunTests | ParserDev String
 
 parseCommandLine :: [String] -> Mode
 parseCommandLine = \case
-  ["test"] -> RunTests
-  ["dev",file] -> ParserDev file
-  [] -> do
-    let file = "examples/first.ml6"
-    ParserDev file
+  [] -> RunTests
+  [entryName] -> ParserDev entryName
   xs -> error (show ("parseCommandLine",xs))
