@@ -10,3 +10,16 @@ let collatz_two_steps x =
   let x = collatz_step x in
   let x = collatz_step x in
   x
+
+
+let one a =
+  a + 1
+
+let two a x =
+  a + x
+
+let three a x y =
+  a + x + y
+
+let what a =
+  (a + 1) + (a + 1)

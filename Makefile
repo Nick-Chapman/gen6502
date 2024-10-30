@@ -12,5 +12,5 @@ dev-%: src/*.hs examples/%.ml6
 regression: the.out
 	git diff the.out
 
-the.out: src/*.hs
+the.out: src/*.hs examples/examples.ml6
 	stack run test > $@

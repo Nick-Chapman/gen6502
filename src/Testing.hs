@@ -13,7 +13,7 @@ import qualified Data.Map as Map
 
 runTests :: IO ()
 runTests = do
-  prog <- parse gram6 <$> readFile "examples/first.ml6"
+  prog <- parse gram6 <$> readFile "examples/examples.ml6"
   mapM_ run1 (zip [1::Int ..] (examples prog))
 
 run1 :: (Int,Examples.Trip) -> IO ()

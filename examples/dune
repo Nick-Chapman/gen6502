@@ -1,6 +1,6 @@
 (library
  (name gen6502examples)
- (modules prim first collatz multi)
+ (modules prim examples collatz)
  (flags
   (:standard -nostdlib -nopervasives)))
 
@@ -15,20 +15,11 @@
 
 (rule
  (with-stdout-to
-  first.ml
+  examples.ml
   (progn
    (echo
     "module F(X:Prim.S) = struct open! X ")
-   (cat first.ml6)
-   (echo "end"))))
-
-(rule
- (with-stdout-to
-  multi.ml
-  (progn
-   (echo
-    "module F(X:Prim.S) = struct open! X ")
-   (cat multi.ml6)
+   (cat examples.ml6)
    (echo "end"))))
 
 (executables
