@@ -12,7 +12,7 @@ import Data.Word (Word8)
 import Par4 (Par,noError,alts,many,some,sat)
 import Text.Printf (printf)
 import Util (look,extend,zipCheck)
-import qualified Data.Char as Char (isAlpha)
+import qualified Data.Char as Char (isAlpha,isNumber)
 import qualified Data.List as List
 import qualified Data.Map as Map
 
@@ -192,7 +192,7 @@ gram6 = program where
   keywords = ["let","in","if","then","else"]
 
   isIdentChar1 c = Char.isAlpha c || c == '_'
-  isIdentChar c = isIdentChar1 c || c == '\'' -- TODO digits
+  isIdentChar c = Char.isNumber c || isIdentChar1 c || c == '\''
 
   key s =
     if all isIdentChar s && s `notElem` keywords

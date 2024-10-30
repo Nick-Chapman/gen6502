@@ -73,6 +73,12 @@ compileExp' need env exp = do
     act1 <- compileExp (need `union` needExp env arg2) env arg1
     act2 <- compileExp (need `union` needVal act1) env arg2
     apply (need) f [act1,act2]
+  App func [arg1,arg2,arg3] -> do
+    let f = look "compileExp/App3" env func
+    act1 <- compileExp (need `union` needExp env arg2 `union` needExp env arg3) env arg1
+    act2 <- compileExp (need `union` needVal act1 `union` needExp env arg3) env arg1
+    act3 <- compileExp (need `union` needVal act1 `union` needVal act2) env arg2
+    apply (need) f [act1,act2,act3]
   App _ xs -> error (show ("compileExp/App",length xs))
   Ite i t e -> do
     i <- compileExp (need `union` needExp env t `union` needExp env e) env i

@@ -43,3 +43,10 @@ let three a x y =
 
 let what a =
   (a + 1) + (a + 1)
+
+
+let bug1 () =
+  let a = 43 in
+  let t = (a == 42) in
+  let u = (a == 43) in
+  if t then 11 else 22
