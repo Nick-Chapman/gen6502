@@ -11,7 +11,7 @@ import Data.Set (Set,member)
 import Data.Word (Word8)
 import Instruction (ITransfer(..),ICompute(..),ICompare(..))
 import Prelude hiding (exp,compare,and)
-import SemState (Name,Arg(..),Arg1(..),findSemState,lookupReg)
+import SemState (Name,Name1,Arg(..),Arg1(..),lookupName,lookupName1,lookupReg)
 import Semantics (clc, sec, trans, compute, compare)
 
 import qualified Data.Set as Set
@@ -83,6 +83,8 @@ cmp :: Pred -> Asm Arg1
 cmp = \case
   Equal arg1 arg2 -> do
     alternatives [ do loadA arg1; cmpIntoA arg2 , do loadA arg2; cmpIntoA arg1 ]
+  Less arg1 arg2 -> do
+    do loadA arg1; cmpIntoA arg2
 
 cmpIntoA :: Arg -> Asm Arg1
 cmpIntoA = \case
@@ -91,18 +93,16 @@ cmpIntoA = \case
     z <- getIntoZ name
     compare (Cmpz z)
 
--- TODO: track Flags in Semantics
-codegenBranch :: Arg1 -> Asm Flag
-codegenBranch _ =
-  -- This needs to find out which flag (if any) is holding the compute Arg1 predicate
-  -- But current we have only one flag
-  -- and we are not tracking it yet!
-  -- so lets just return it, and have emulation show when this is wrong
-  --undefined
-  pure FlagZ
+codegenBranch :: Name1 -> Asm Flag
+codegenBranch name1 = do
+  xs <- lookupName1 name1 <$> querySS
+  case xs of
+--    [] -> error "codegenBranch/0"
+--    _:_:_ -> error "codegenBranch/2+"
+--    [flag] -> pure flag
+    _ -> pure FlagZ
 
 ----------------------------------------------------------------------
-
 
 type Gen = Oper -> Asm Arg
 
@@ -384,8 +384,7 @@ inAcc = \case
 
 locations :: Name -> Asm Located
 locations name = do
-  ss <- querySS
-  let xs = findSemState ss name
+  xs <- lookupName name <$> querySS
   pure (classifyRegs xs)
 
 data Located = Located { a,x,y::Bool,z::Maybe ZeroPage } deriving (Eq)
@@ -416,7 +415,9 @@ everywhere Located{a,x,y,z} = do
 ----------------------------------------------------------------------
 -- Oper, Pred
 
-data Pred = Equal Arg Arg
+data Pred
+  = Equal Arg Arg
+  | Less Arg Arg
   deriving (Eq,Show)
 
 data Oper

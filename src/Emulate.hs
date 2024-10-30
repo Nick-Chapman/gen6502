@@ -33,8 +33,9 @@ step ms@MS{regs,flags} = do
   let x = RegX
   let y = RegY
 
-  -- only have Z flag. TODO: update N also when it exists!
-  let upNZ flags v = ms { flags = extend flags FlagZ (v==0) }
+  let isN v = (v .&. 128) == 128
+
+  let upNZ flags v = do ms { flags = extend (extend flags FlagN (isN v)) FlagZ (v==0) }
   let up k v = (upNZ flags v) { regs = extend regs k v }
   let store z = up (ZP z) -- dont update flags
   \case

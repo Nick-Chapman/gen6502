@@ -1,12 +1,12 @@
 module Asm
-  ( AsmState, makeAsmState, updateSS, freshName, emitWithSemantics, querySS, freshTemp
+  ( AsmState, makeAsmState, updateSS, freshName, freshName1, emitWithSemantics, querySS, freshTemp
   , Asm(..), runAsm
   ) where
 
 import Architecture (ZeroPage,Flag)
 import Control.Monad (ap,liftM)
 import Instruction (Code,Instruction)
-import SemState (Name(..),SemState)
+import SemState (Name(..),Name1(..),SemState)
 import qualified Instruction as I (Code(..),Instruction(Branch))
 
 ----------------------------------------------------------------------
@@ -23,7 +23,11 @@ makeAsmState ss temps u = AsmState { ss, temps, u  }
 
 freshName :: Asm Name
 freshName = Update f
-  where f s@AsmState { u } = (NameU {unique = u}, s { u = u + 1 })
+  where f s@AsmState { u } = (Name8U {unique = u}, s { u = u + 1 })
+
+freshName1 :: Asm Name1
+freshName1 = Update f
+  where f s@AsmState { u } = (Name1U {unique = u}, s { u = u + 1 })
 
 updateSS :: (SemState -> (a,SemState)) -> Asm a
 updateSS m =

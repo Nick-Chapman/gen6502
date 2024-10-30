@@ -2,14 +2,14 @@ module Compile
   ( CC(..), Macro(..), collectDefs, deMacro, assembleMacro
   ) where
 
-import Architecture (Reg(..),Flag(..),ZeroPage(..),Immediate(..))
+import Architecture (Reg(..),ZeroPage(..),Immediate(..))
 import Asm (AsmState,makeAsmState,Asm,runAsm)
 import Data.Map (Map)
 import Data.Word (Word8)
 import Instruction (Code)
 import Program (Prog(..),Def(..),Exp(..),Id)
 import Selection (Oper(..) ,Pred(..),Need,needNothing,needName,needUnion,codegen,codegenPred,assign,codegenBranch)
-import SemState (Name(..),Arg(..),Arg1(..),initSS)
+import SemState (Name(..),Name1(..),Arg(..),Arg1(..),initSS)
 import Text.Printf (printf)
 import Util (look,extend,zipCheck)
 import qualified Asm (Asm(Branch))
@@ -33,7 +33,7 @@ assembleMacro :: Macro -> CC -> IO [Code]
 assembleMacro entry cc = do
   let CC { args = argRegs, target = targetReg } = cc
   let numArgs = length argRegs
-  let argNames = [ Name (NameU u) | u <- [0..numArgs-1] ]
+  let argNames = [ Name (Name8U u) | u <- [0..numArgs-1] ]
   let ss = initSS (Map.fromList (zip argRegs argNames))
   let temps = [ZeroPage n | n <- [7..19]]
   let state :: AsmState = makeAsmState ss temps numArgs
@@ -106,9 +106,10 @@ needExp env = \case
 ite :: Val -> Asm Val -> Asm Val -> Asm Val
 ite i t e = do
   i <- getArg1 i
-  _p1 <- codegenBranch i
-  let _p2 = FlagZ
-  Asm.Branch _p1 t e
+  case i of
+    Name1 name1 -> do
+      flag <- codegenBranch name1
+      Asm.Branch flag t e
 
 ----------------------------------------------------------------------
 -- (Compile time) values
@@ -126,7 +127,7 @@ data Val
   | ValPrim Prim
   | ValNum Byte
   | ValName8 Name
-  | ValName1 Name
+  | ValName1 Name1
   deriving Show
 
 deMacro :: Val -> Macro
@@ -186,6 +187,7 @@ initialEnv = Map.fromList
   , ("+", ValPrim (binary primAdd))
   , ("-", ValPrim (binary primSub))
   , ("==", ValPrim (binary primEq))
+  , ("<", ValPrim (binary primLess))
   , ("shr", ValPrim (unary primShr))
   , ("shl", ValPrim (unary primShl))
   ]
@@ -253,6 +255,14 @@ primEq need v1 v2 = do
   pure (valOfArg1 res)
   where
     commute op a b = if a < b then op a b else op b a
+
+primLess :: Need -> Val -> Val -> Asm Val
+primLess need v1 v2 = do
+  arg1 <- getArg v1
+  arg2 <- getArg v2
+  let pred = Less arg1 arg2
+  res <- codegenPred need pred
+  pure (valOfArg1 res)
 
 unary :: (Need -> Val -> Asm Val) -> Prim
 unary op = Prim $ \need -> \case [a] -> op need a; _ -> error "unary"

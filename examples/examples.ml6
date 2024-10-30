@@ -50,3 +50,10 @@ let bug1 () =
   let t = (a == 42) in
   let u = (a == 43) in
   if t then 11 else 22
+
+
+let if_equal a b c d =
+  if a == b then c else d
+
+let if_less a b c d =
+  if a < b then c else d

@@ -5,9 +5,9 @@ module Semantics
 import Prelude hiding (compare)
 
 import Architecture (Immediate,Reg(..))
-import Asm (Asm,freshName,emitWithSemantics)
+import Asm (Asm,freshName,freshName1,emitWithSemantics)
 import Instruction (Instruction(..),ITransfer(..),ICompute(..),ICompare(..))
-import SemState (Name(..),Arg(..),Arg1(..),SemState,lookSS,updateSS)
+import SemState (Name(..),Name1(..),Arg(..),Arg1(..),SemState,lookSS,updateSS)
 import Text.Printf (printf)
 
 ----------------------------------------------------------------------
@@ -65,7 +65,7 @@ computeSemantics name = \case
   Lsra -> overwrite name RegA
   Lsrz z -> overwrite name (ZP z)
 
-compareSemantics :: Name -> ICompare -> Semantics
+compareSemantics :: Name1 -> ICompare -> Semantics
 compareSemantics _name = \case -- TODO
   Cmpz{} -> noSemantics
   Cmpi{} -> noSemantics
@@ -91,6 +91,6 @@ compute i = do
 
 compare :: ICompare -> Asm Arg1
 compare i = do
-  name <- freshName -- TODO: name1 should be different type to name??
-  emitWithSemantics (Compare i) (compareSemantics name i)
-  pure (Name1 name) -- oh, and not just here
+  name1 <- freshName1 -- TODO: name1 should be different type to name??
+  emitWithSemantics (Compare i) (compareSemantics name1 i)
+  pure (Name1 name1) -- oh, and not just here

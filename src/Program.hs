@@ -95,7 +95,7 @@ apply f args =
 
 initialEnv :: Env
 initialEnv = Map.fromList
-  [ (x,VPrim x) | x <- ["&","+","-","^","==","shr","shl"] ]
+  [ (x,VPrim x) | x <- ["&","+","-","^","==","<","shr","shl"] ]
 
 applyPrim :: (String, [Value]) -> Value
 applyPrim = \case
@@ -104,6 +104,7 @@ applyPrim = \case
   ("&",[VNum a,VNum b]) -> VNum (a .&. b)
   ("^",[VNum a,VNum b]) -> VNum (a `xor` b)
   ("==",[VNum a,VNum b]) -> VBool (a == b)
+  ("<",[VNum a,VNum b]) -> VBool (a < b)
   ("shl",[VNum a]) -> VNum (a `shiftL` 1)
   ("shr",[VNum a]) -> VNum (a `shiftR` 1)
   x -> error (show ("applyPrim",x))
@@ -266,7 +267,7 @@ gram6 = program where
            ]
 
   sum = infixOp ["+"] atomOrApp
-  equal = infixOp ["=="] sum
+  equal = infixOp ["==","<"] sum
   conj = infixOp ["&"] equal
 
   infixWeakestPrecendence = conj
