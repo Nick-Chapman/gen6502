@@ -1,4 +1,4 @@
-module Codegen -- TODO: rename Select. too many modules starting "Co.."
+module Selection
   ( assign
   , Oper(..),Pred(..)
   , codegenBranch, codegen, codegenPred
