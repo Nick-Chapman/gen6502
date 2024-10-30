@@ -10,7 +10,7 @@ examples :: Prog -> [Trip]
 examples prog =
   map exampleEntry astExamples ++
   [ Trip prog "collatz_step" cc1
-    -- , Trip prog "collatz_two_steps" cc1 -- TODO, investigate BAD emulation 121, diff from evaluation 20
+  , Trip prog "collatz_two_steps" cc1
   ]
   where
     cc1 = do

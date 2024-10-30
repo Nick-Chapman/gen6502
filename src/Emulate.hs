@@ -59,12 +59,12 @@ step ms@MS{regs,flags} = do
       case i of
         -- TODO: adc/sbc should read/set carry flag
         Adci (Immediate b) -> up a (get a + b)
-        Adcz z -> up a (get a + get (ZP z))
         Sbci (Immediate b) -> up a (get a - b)
-        Sbcz z -> up a (get a - get (ZP z))
         Andi (Immediate b) -> up a (get a .&. b)
-        Andz z -> up a (get a `xor` get (ZP z))
-        Eori (Immediate b) -> up a (get a .&. b)
+        Eori (Immediate b) -> up a (get a `xor` b)
+        Adcz z -> up a (get a + get (ZP z))
+        Sbcz z -> up a (get a - get (ZP z))
+        Andz z -> up a (get a .&. get (ZP z))
         Eorz z -> up a (get a `xor` get (ZP z))
         Inx -> up x (get x + 1)
         Iny -> up y (get y + 1)

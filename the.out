@@ -524,3 +524,14 @@ then (shr x)
 else (((shl x) + x) + 1))
 #results=6
 {20/21}: [sta 7,and #1,cmp #0,bz [lda 7,lsr a] [lda 7,asl a,clc,adc 7,clc,adc #1]] --> [A]
+
+[115]example = let x = (collatz_step x)
+let x = (collatz_step x)
+x
+#results=864
+{59/42}: [sta 7,and #1,cmp #0,bz [lsr 7,lda #1,and 7,cmp #0,bz [lda 7,lsr a] [lda 7,asl a,clc,adc 7,tax,inx,txa]] [lda 7,asl a,clc,adc 7,clc,adc #1,sta 8,and #1,cmp #0,bz [lda 8,lsr a] [lda 8,asl a,clc,adc 8,clc,adc #1]]] --> [A]
+{59/42}: [sta 7,and #1,cmp #0,bz [lsr 7,lda #1,and 7,cmp #0,bz [lda 7,lsr a] [lda 7,asl a,clc,adc 7,tay,iny,tya]] [lda 7,asl a,clc,adc 7,clc,adc #1,sta 8,and #1,cmp #0,bz [lda 8,lsr a] [lda 8,asl a,clc,adc 8,clc,adc #1]]] --> [A]
+{59/42}: [sta 7,and #1,cmp #0,bz [lsr 7,lda #1,and 7,cmp #0,bz [lda 7,lsr a] [lda 7,asl a,clc,adc 7,clc,adc #1]] [lda 7,asl a,clc,adc 7,clc,adc #1,sta 8,and #1,cmp #0,bz [lda 8,lsr a] [lda 8,asl a,clc,adc 8,clc,adc #1]]] --> [A]
+{59/42}: [sta 7,and #1,cmp #0,bz [lsr 7,lda 7,and #1,cmp #0,bz [lda 7,lsr a] [lda 7,asl a,clc,adc 7,tax,inx,txa]] [lda 7,asl a,clc,adc 7,clc,adc #1,sta 8,and #1,cmp #0,bz [lda 8,lsr a] [lda 8,asl a,clc,adc 8,clc,adc #1]]] --> [A]
+{59/42}: [sta 7,and #1,cmp #0,bz [lsr 7,lda 7,and #1,cmp #0,bz [lda 7,lsr a] [lda 7,asl a,clc,adc 7,tay,iny,tya]] [lda 7,asl a,clc,adc 7,clc,adc #1,sta 8,and #1,cmp #0,bz [lda 8,lsr a] [lda 8,asl a,clc,adc 8,clc,adc #1]]] --> [A]
+{59/42}: [sta 7,and #1,cmp #0,bz [lsr 7,lda 7,and #1,cmp #0,bz [lda 7,lsr a] [lda 7,asl a,clc,adc 7,clc,adc #1]] [lda 7,asl a,clc,adc 7,clc,adc #1,sta 8,and #1,cmp #0,bz [lda 8,lsr a] [lda 8,asl a,clc,adc 8,clc,adc #1]]] --> [A]
