@@ -32,7 +32,6 @@ data Arg1 = Name1 Name -- = Yes | No | Name1 Name1
 ----------------------------------------------------------------------
 -- Semantic state (map from Reg)
 
--- TODO: rename SS ?
 -- TODO: example that knows a reg has an immediate in it
 data SemState = SS {env :: Map Reg Arg}
 

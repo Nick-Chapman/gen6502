@@ -164,8 +164,6 @@ astExamples =
   -- , asl (asl (add (Ite (equal a x) a x) (num 1)))
 
   , Ite (equal x x) z z2
-
-  -- TODO: add collatz(step) examples + more!
   ]
 
   where

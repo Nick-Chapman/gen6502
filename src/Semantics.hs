@@ -47,8 +47,6 @@ transferSemantics = \case
   Stx z -> transfer RegX (ZP z)
   Sty z -> transfer RegY (ZP z)
 
--- TODO: These should return Asm Name, doing the freshName as required
--- passing back the name, rather than taking the Sem(=Name)
 computeSemantics :: Name -> ICompute -> Semantics
 computeSemantics name = \case
   Adci{} -> overwrite name RegA
@@ -69,9 +67,8 @@ computeSemantics name = \case
 
 compareSemantics :: Name -> ICompare -> Semantics
 compareSemantics _name = \case -- TODO
-  Cmpz{} -> noSemantics -- undefined sem1
-  Cmpi{} -> noSemantics --undefined
-
+  Cmpz{} -> noSemantics
+  Cmpi{} -> noSemantics
 
 ----------------------------------------------------------------------
 -- emitWithSemantics
